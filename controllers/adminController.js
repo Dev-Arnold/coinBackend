@@ -155,21 +155,39 @@ const getPendingCoins = async (req, res, next) => {
 // Approve coin
 const approveCoin = async (req, res, next) => {
   try {
-    const coin = await Coin.findById(req.params.coinId);
+    const { coinId } = req.params;
+    const { type = 'coin' } = req.body; // 'coin' or 'userCoin'
     
+    if (type === 'userCoin') {
+      const userCoin = await UserCoin.findById(coinId);
+      if (!userCoin) {
+        return next(new AppError('User coin not found', 404));
+      }
+      
+      userCoin.isApproved = true;
+      userCoin.status = 'available';
+      await userCoin.save();
+      
+      return res.status(200).json({
+        status: 'success',
+        message: 'User coin approved successfully',
+        data: { userCoin }
+      });
+    }
+    
+    // Default: approve regular coin
+    const coin = await Coin.findById(coinId);
     if (!coin) {
       return next(new AppError('Coin not found', 404));
     }
-
+    
     coin.isApproved = true;
     await coin.save();
-
+    
     res.status(200).json({
       status: 'success',
       message: 'Coin approved successfully',
-      data: {
-        coin
-      }
+      data: { coin }
     });
   } catch (error) {
     next(error);
@@ -360,6 +378,7 @@ const approveUserCoin = async (req, res, next) => {
     }
 
     userCoin.isApproved = true;
+    userCoin.isLocked = false;
     userCoin.status = 'available';
     await userCoin.save();
 

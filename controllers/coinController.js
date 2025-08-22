@@ -229,38 +229,108 @@ const makeRecommitmentBid = async (req, res, next) => {
   }
 };
 
-// List user coin for auction (resale)
+// Submit matured user coin for admin approval
+const submitUserCoinForApproval = async (req, res, next) => {
+  try {
+    const { userCoinId } = req.params;
+    const userId = req.user.id;
+
+    const userCoin = await UserCoin.findById(userCoinId).populate('coin');
+    if (!userCoin || userCoin.owner.toString() !== userId) {
+      return next(new AppError('User coin not found or not owned by you', 404));
+    }
+
+    // const isMatured = await userCoin.hasMatured();
+    // if (!isMatured) {
+    //   return next(new AppError('Coin has not matured yet. Cannot submit for approval.', 400));
+    // }
+
+    if (userCoin.status === 'pending_approval') {
+      return next(new AppError('Coin is already pending approval', 400));
+    }
+
+    if (!userCoin.isLocked) {
+      return next(new AppError('Coin is already unlocked', 400));
+    }
+
+    // Submit for approval
+    userCoin.status = 'pending_approval';
+    userCoin.isApproved = false;
+    await userCoin.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Matured coin submitted for admin approval successfully',
+      data: {
+        userCoin
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// List user coin for auction (only for approved unlocked coins)
 const listUserCoinForAuction = async (req, res, next) => {
   try {
     const { userCoinId } = req.params;
-    const { newPrice } = req.body;
+    const { newPrice, collectProfit = false } = req.body;
     const userId = req.user.id;
 
-    const userCoin = await UserCoin.findById(userCoinId);
+    const userCoin = await UserCoin.findById(userCoinId).populate('coin');
     if (!userCoin || userCoin.owner.toString() !== userId) {
       return next(new AppError('User coin not found or not owned by you', 404));
     }
 
     if (userCoin.isLocked) {
-      return next(new AppError('User coin is locked. Make recommitment bid first.', 400));
+      return next(new AppError('Coin is locked. Submit for admin approval first.', 400));
+    }
+
+    if (!userCoin.isApproved) {
+      return next(new AppError('Coin must be approved by admin before listing.', 400));
     }
 
     if (userCoin.isInAuction) {
       return next(new AppError('User coin is already in auction', 400));
     }
 
-    // Update user coin for auction
-    userCoin.currentPrice = newPrice || await userCoin.calculateCurrentValue();
+    const isMatured = await userCoin.hasMatured();
+    let profitCollected = 0;
+    let newBalance = 0;
+
+    // If coin is matured and user wants to collect profit
+    if (isMatured && collectProfit) {
+      const finalValue = await userCoin.calculateCurrentValue();
+      profitCollected = finalValue - userCoin.currentPrice;
+      
+      // Add profit to user balance
+      const user = await User.findById(userId);
+      user.balance += profitCollected;
+      await user.save();
+      newBalance = user.balance;
+      
+      // Update coin price to matured value
+      userCoin.currentPrice = finalValue;
+      userCoin.status = 'matured';
+    }
+
+    // List coin for auction
+    userCoin.currentPrice = newPrice || userCoin.currentPrice;
     userCoin.seller = userId;
     userCoin.isInAuction = true;
-    userCoin.status = 'available';
+    if (!isMatured || !collectProfit) userCoin.status = 'available';
     await userCoin.save();
+
+    const message = profitCollected > 0 
+      ? `Profit collected! ₦${profitCollected.toLocaleString()} added to your balance. Coin listed for auction.`
+      : 'User coin listed for auction successfully';
 
     res.status(200).json({
       status: 'success',
-      message: 'User coin listed for auction successfully',
+      message,
       data: {
-        userCoin
+        userCoin,
+        ...(profitCollected > 0 && { profitCollected, newBalance })
       }
     });
   } catch (error) {
@@ -274,5 +344,6 @@ export {
   getUserCoin, 
   uploadPaymentProof, 
   makeRecommitmentBid, 
+  submitUserCoinForApproval,
   listUserCoinForAuction 
 };

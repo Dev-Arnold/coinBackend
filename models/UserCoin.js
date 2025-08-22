@@ -22,8 +22,8 @@ const userCoinSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['available', 'sold', 'locked', 'pending_payment'],
-    default: 'available'
+    enum: ['available', 'sold', 'locked', 'pending_payment', 'matured', 'pending_approval'],
+    default: 'locked'
   },
   isLocked: {
     type: Boolean,
@@ -62,16 +62,30 @@ userCoinSchema.methods.calculateCurrentValue = async function() {
   return Math.floor(this.currentPrice * (1 + (dailyGrowth * daysHeld)));
 };
 
+// Check if coin has matured (completed its plan days)
+userCoinSchema.methods.hasMatured = async function() {
+  await this.populate('coin');
+  if (!this.purchaseDate || !this.coin) return false;
+  
+  const daysHeld = Math.floor((Date.now() - this.purchaseDate) / (1000 * 60 * 60 * 24));
+  const planDays = parseInt(this.coin.plan.replace('days', ''));
+  
+  return daysHeld >= planDays;
+};
+
 // Get profit information
 userCoinSchema.methods.getProfitInfo = async function() {
   const currentValue = await this.calculateCurrentValue();
   const profit = currentValue - this.currentPrice;
   const profitPercentage = ((profit / this.currentPrice) * 100).toFixed(2);
+  const isMatured = await this.hasMatured();
   
   return {
     currentValue,
     profit,
-    profitPercentage
+    profitPercentage,
+    isMatured,
+    canSell: isMatured && !this.isLocked
   };
 };
 
