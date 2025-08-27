@@ -10,11 +10,6 @@ const transactionSchema = new mongoose.Schema({
     type: mongoose.Schema.ObjectId,
     ref: 'User'
   },
-  coin: {
-    type: mongoose.Schema.ObjectId,
-    ref: 'Coin',
-    required: true
-  },
   userCoin: {
     type: mongoose.Schema.ObjectId,
     ref: 'UserCoin'

@@ -73,33 +73,6 @@ const userSchema = new mongoose.Schema({
       trim: true
     }
   },
-  isVerified: {
-    type: Boolean,
-    default: false
-  },
-  kycStatus: {
-    type: String,
-    enum: ['not_submitted', 'pending', 'verified', 'rejected'],
-    default: 'not_submitted'
-  },
-  address: {
-    street: String,
-    city: String,
-    state: String,
-    country: String,
-    postalCode: String
-  },
-  kyc: {
-    fullName: String,
-    idCardType: {
-      type: String,
-      enum: ['national_id', 'passport', 'drivers_license']
-    },
-    idCardImage: String,
-    proofOfAddress: String,
-    submittedAt: Date,
-    rejectionReason: String
-  },
   createdAt: {
     type: Date,
     default: Date.now

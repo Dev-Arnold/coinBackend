@@ -37,10 +37,8 @@ const getUser = async (req, res, next) => {
     }
 
     // Get user's coins and transactions
-    const userCoins = await UserCoin.find({ owner: user._id })
-      .populate('coin', 'name category plan basePrice profitPercentage');
+    const userCoins = await UserCoin.find({ owner: user._id });
     const transactions = await Transaction.find({ buyer: user._id })
-      .populate('coin', 'name basePrice')
       .sort('-createdAt');
 
     res.status(200).json({
@@ -56,33 +54,10 @@ const getUser = async (req, res, next) => {
   }
 };
 
-// Create new coin type (admin only)
-const createCoin = async (req, res, next) => {
-  try {
-    const { plan, basePrice } = req.body;
-
-    // Create new coin type
-    const coin = await Coin.create({
-      plan,
-      basePrice
-    });
-
-    res.status(201).json({
-      status: 'success',
-      message: 'Coin type created successfully',
-      data: {
-        coin
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 // Manually assign coin to user
 const assignCoinToUser = async (req, res, next) => {
   try {
-    const { userId, coinId, currentPrice } = req.body;
+    const { userId, plan, currentPrice, isBonusCoin = false } = req.body;
 
     // Check if user exists
     const user = await User.findById(userId);
@@ -90,24 +65,56 @@ const assignCoinToUser = async (req, res, next) => {
       return next(new AppError('User not found', 404));
     }
 
-    // Check if coin type exists
-    const coin = await Coin.findById(coinId);
-    if (!coin) {
-      return next(new AppError('Coin type not found', 404));
+    // Set profit percentage based on plan
+    let profitPercentage;
+    switch(plan) {
+      case '5days':
+        profitPercentage = 35;
+        break;
+      case '10days':
+        profitPercentage = 107;
+        break;
+      case '30days':
+        profitPercentage = 215;
+        break;
+      default:
+        return next(new AppError('Invalid plan selected', 400));
+    }
+
+    // Set category based on current price
+    let category;
+    if (currentPrice >= 10000 && currentPrice <= 100000) {
+      category = 'Category A';
+    } else if (currentPrice > 100000 && currentPrice <= 250000) {
+      category = 'Category B';
+    } else if (currentPrice > 250000 && currentPrice <= 500000) {
+      category = 'Category C';
+    } else if (currentPrice > 500000 && currentPrice <= 1000000) {
+      category = 'Category D';
+    } else {
+      return next(new AppError('Price must be between ₦10,000 and ₦1,000,000', 400));
     }
 
     // Create user coin
     const userCoin = await UserCoin.create({
-      coin: coinId,
       owner: userId,
-      currentPrice: currentPrice || coin.basePrice,
+      plan,
+      currentPrice,
+      category,
+      profitPercentage,
       isApproved: true,
-      status: 'locked'
+      isBonusCoin,
+      status: isBonusCoin ? 'available' : 'locked',
+      isLocked: !isBonusCoin
     });
+
+    const message = isBonusCoin 
+      ? 'Bonus coin assigned and ready for auction'
+      : 'Coin assigned to user successfully';
 
     res.status(201).json({
       status: 'success',
-      message: 'Coin assigned to user successfully',
+      message,
       data: {
         userCoin
       }
@@ -120,7 +127,7 @@ const assignCoinToUser = async (req, res, next) => {
 // Get all coins (admin-defined coin types)
 const getAllCoins = async (req, res, next) => {
   try {
-    const coins = await Coin.find().sort('-createdAt');
+    const coins = await UserCoin.find().sort('-createdAt');
 
     res.status(200).json({
       status: 'success',
@@ -137,7 +144,7 @@ const getAllCoins = async (req, res, next) => {
 // Get pending coins for approval
 const getPendingCoins = async (req, res, next) => {
   try {
-    const pendingCoins = await Coin.find({ isApproved: false })
+    const pendingCoins = await UserCoin.find({ isApproved: false })
       .sort('-createdAt');
 
     res.status(200).json({
@@ -152,47 +159,6 @@ const getPendingCoins = async (req, res, next) => {
   }
 };
 
-// Approve coin
-const approveCoin = async (req, res, next) => {
-  try {
-    const { coinId } = req.params;
-    const { type = 'coin' } = req.body; // 'coin' or 'userCoin'
-    
-    if (type === 'userCoin') {
-      const userCoin = await UserCoin.findById(coinId);
-      if (!userCoin) {
-        return next(new AppError('User coin not found', 404));
-      }
-      
-      userCoin.isApproved = true;
-      userCoin.status = 'available';
-      await userCoin.save();
-      
-      return res.status(200).json({
-        status: 'success',
-        message: 'User coin approved successfully',
-        data: { userCoin }
-      });
-    }
-    
-    // Default: approve regular coin
-    const coin = await Coin.findById(coinId);
-    if (!coin) {
-      return next(new AppError('Coin not found', 404));
-    }
-    
-    coin.isApproved = true;
-    await coin.save();
-    
-    res.status(200).json({
-      status: 'success',
-      message: 'Coin approved successfully',
-      data: { coin }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
 
 // Release coins to auction
 const releaseCoinsForAuction = async (req, res, next) => {
@@ -306,7 +272,7 @@ const endAuctionManually = async (req, res, next) => {
     await activeAuction.save();
 
     // Reset coins from auction
-    await Coin.updateMany(
+    await UserCoin.updateMany(
       { isInAuction: true },
       { isInAuction: false, auctionStartDate: null }
     );
@@ -331,7 +297,7 @@ const endAuctionManually = async (req, res, next) => {
 // Reset all coins from auction (for testing)
 const resetCoinsFromAuction = async (req, res, next) => {
   try {
-    const result = await Coin.updateMany(
+    const result = await UserCoin.updateMany(
       { isInAuction: true },
       { isInAuction: false, auctionStartDate: null }
     );
@@ -353,7 +319,6 @@ const getPendingUserCoins = async (req, res, next) => {
   try {
     const pendingUserCoins = await UserCoin.find({ isApproved: false })
       .populate('owner', 'name email')
-      .populate('coin', 'name category plan')
       .sort('-createdAt');
 
     res.status(200).json({
@@ -451,32 +416,11 @@ const getStats = async (req, res, next) => {
   }
 };
 
-// Get users with KYC information
-const getUsersWithKyc = async (req, res, next) => {
-  try {
-    const users = await User.find({ role: 'user' })
-      .select('-password +kycStatus +kycDocuments')
-      .sort('-createdAt');
-
-    res.status(200).json({
-      status: 'success',
-      results: users.length,
-      data: {
-        users
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 export { 
   getAllUsers, 
   getUser, 
-  createCoin,
   getAllCoins,
   getPendingCoins,
-  approveCoin,
   assignCoinToUser, 
   getPendingUserCoins, 
   approveUserCoin, 
@@ -486,6 +430,5 @@ export {
   getAuctionStatistics,
   startAuctionManually,
   endAuctionManually,
-  resetCoinsFromAuction,
-  getUsersWithKyc
+  resetCoinsFromAuction
 };

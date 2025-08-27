@@ -6,6 +6,8 @@ import {
   uploadPaymentProof, 
   makeRecommitmentBid, 
   submitUserCoinForApproval,
+  getSellerBankDetails,
+  releaseCoinToBuyer,
   listUserCoinForAuction 
 } from '../controllers/coinController.js';
 import { protect } from '../middlewares/authMiddleware.js';
@@ -21,7 +23,9 @@ router.use(protect);
 
 router.get('/my-coins', getMyCoins);
 router.get('/user-coin/:id', getUserCoin);
+router.get('/seller-bank-details/:coinId', getSellerBankDetails);
 router.post('/payment-proof/:transactionId', paymentUpload.single('paymentProof'), uploadPaymentProof);
+router.post('/release-coin/:transactionId', releaseCoinToBuyer);
 router.post('/user-coin/:userCoinId/recommit', makeRecommitmentBid);
 router.post('/user-coin/:userCoinId/submit-for-approval', submitUserCoinForApproval);
 router.post('/user-coin/:userCoinId/list-auction', listUserCoinForAuction);

@@ -1,5 +1,4 @@
 import AuctionSession from '../models/AuctionSession.js';
-import Coin from '../models/Coin.js';
 import UserCoin from '../models/UserCoin.js';
 import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
@@ -39,38 +38,40 @@ const getAuctionCoins = async (req, res, next) => {
       return next(new AppError('No active auction at the moment', 400));
     }
 
-    // Get coins in auction grouped by category
-    const coinsByCategory = await Coin.aggregate([
-      {
-        $match: {
-          isInAuction: true,
-          isApproved: true
-        }
-      },
-      {
-        $group: {
-          _id: '$category',
-          coins: {
-            $push: {
-              _id: '$_id',
-              basePrice: '$basePrice',
-              plan: '$plan',
-              profitPercentage: '$profitPercentage',
-              auctionStartDate: '$auctionStartDate'
-            }
-          },
-          count: { $sum: 1 },
-          minPrice: { $min: '$basePrice' },
-          maxPrice: { $max: '$basePrice' }
-        }
+    // Get user coins in auction
+    const userCoins = await UserCoin.find({
+      isInAuction: true,
+      isApproved: true
+    })
+    .populate('seller', 'name')
+    .select('_id currentPrice category plan profitPercentage seller status');
+
+    // Group by category
+    const coinsByCategory = {};
+
+    userCoins.forEach(userCoin => {
+      if (!coinsByCategory[userCoin.category]) {
+        coinsByCategory[userCoin.category] = { coins: [], count: 0, minPrice: Infinity, maxPrice: 0 };
       }
-    ]);
+      coinsByCategory[userCoin.category].coins.push({
+        _id: userCoin._id,
+        price: userCoin.currentPrice,
+        plan: userCoin.plan,
+        profitPercentage: userCoin.profitPercentage,
+        seller: userCoin.seller,
+        status: userCoin.status
+      });
+      coinsByCategory[userCoin.category].count++;
+      coinsByCategory[userCoin.category].minPrice = Math.min(coinsByCategory[userCoin.category].minPrice, userCoin.currentPrice);
+      coinsByCategory[userCoin.category].maxPrice = Math.max(coinsByCategory[userCoin.category].maxPrice, userCoin.currentPrice);
+    });
 
     res.status(200).json({
       status: 'success',
       data: {
         auctionId: currentAuction._id,
-        categories: coinsByCategory
+        categories: coinsByCategory,
+        totalCoins: userCoins.length
       }
     });
   } catch (error) {
@@ -78,7 +79,7 @@ const getAuctionCoins = async (req, res, next) => {
   }
 };
 
-// Place bid on a coin
+// Place bid on a user coin
 const placeBid = async (req, res, next) => {
   try {
     const { coinId, paymentMethod } = req.body;
@@ -90,13 +91,17 @@ const placeBid = async (req, res, next) => {
       return next(new AppError('No active auction at the moment', 400));
     }
 
-    // Check if coin exists and is in auction
-    const coin = await Coin.findById(coinId);
-    if (!coin || !coin.isInAuction || !coin.isApproved) {
+    // Find the user coin
+    const userCoin = await UserCoin.findById(coinId);
+    if (!userCoin || !userCoin.isInAuction || !userCoin.isApproved) {
       return next(new AppError('Coin is not available for bidding', 400));
     }
+    
+    if (userCoin.owner.toString() === userId) {
+      return next(new AppError('You cannot bid on your own coin', 400));
+    }
 
-    // Check if user has sufficient balance (if required)
+    // Check if user is blocked
     const user = await User.findById(userId);
     if (user.isBlocked) {
       return next(new AppError('Your account is blocked', 403));
@@ -107,17 +112,18 @@ const placeBid = async (req, res, next) => {
     
     const transaction = await Transaction.create({
       buyer: userId,
-      coin: coinId,
-      amount: coin.basePrice,
-      plan: coin.plan,
+      userCoin: coinId,
+      seller: userCoin.seller || userCoin.owner,
+      amount: userCoin.currentPrice,
+      plan: userCoin.plan,
       paymentMethod,
       paymentDeadline,
       auctionSession: currentAuction._id
     });
 
     // Remove coin from auction
-    coin.isInAuction = false;
-    await coin.save();
+    userCoin.isInAuction = false;
+    await userCoin.save();
 
     // Add user to auction participants if not already added
     if (!currentAuction.participants.some(p => p.user.toString() === userId)) {
@@ -131,7 +137,6 @@ const placeBid = async (req, res, next) => {
       message: 'Bid placed successfully. Please complete payment within 15 minutes.',
       data: {
         transaction,
-        coin,
         paymentDeadline
       }
     });
@@ -159,10 +164,12 @@ const cancelBid = async (req, res, next) => {
     transaction.status = 'cancelled';
     await transaction.save();
 
-    // Return coin to auction
-    const coin = await Coin.findById(transaction.coin);
-    coin.isInAuction = true;
-    await coin.save();
+    // Return user coin to auction
+    const userCoin = await UserCoin.findById(transaction.userCoin);
+    if (userCoin) {
+      userCoin.isInAuction = true;
+      await userCoin.save();
+    }
 
     // Reduce user's credit score
     const user = await User.findById(userId);
@@ -187,13 +194,6 @@ const getMyBids = async (req, res, next) => {
 
     const transactions = await Transaction.find({ buyer: userId })
       .populate('userCoin')
-      .populate({
-        path: 'userCoin',
-        populate: {
-          path: 'coin',
-          select: 'name description category plan'
-        }
-      })
       .populate('seller', 'name phone bankDetails')
       .sort('-createdAt');
 

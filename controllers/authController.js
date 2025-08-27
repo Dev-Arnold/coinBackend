@@ -80,16 +80,12 @@ const logout = (req, res) => {
 const getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id)
-      .populate('referredBy', 'firstName lastName email')
-      .select('+kycStatus +kycDocuments');
+      .populate('referredBy', 'firstName lastName email');
     
     res.status(200).json({
       status: 'success',
       data: {
-        user: {
-          ...user.toObject(),
-          isVerified: user.isVerified
-        }
+        user
       }
     });
   } catch (error) {
@@ -100,7 +96,7 @@ const getMe = async (req, res, next) => {
 // Update user profile
 const updateMe = async (req, res, next) => {
   try {
-    const { firstName, lastName, phone, bankDetails, address } = req.body;
+    const { firstName, lastName, phone, bankDetails } = req.body;
 
     // Create object with allowed fields
     const updateData = {};
@@ -108,7 +104,6 @@ const updateMe = async (req, res, next) => {
     if (lastName) updateData.lastName = lastName;
     if (phone) updateData.phone = phone;
     if (bankDetails) updateData.bankDetails = bankDetails;
-    if (address) updateData.address = address;
 
     const updatedUser = await User.findByIdAndUpdate(req.user.id, updateData, {
       new: true,
@@ -118,10 +113,7 @@ const updateMe = async (req, res, next) => {
     res.status(200).json({
       status: 'success',
       data: {
-        user: {
-          ...updatedUser.toObject(),
-          isVerified: updatedUser.isVerified
-        }
+        user: updatedUser
       }
     });
   } catch (error) {

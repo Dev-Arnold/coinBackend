@@ -1,4 +1,4 @@
-import Coin from '../models/Coin.js';
+import UserCoin from '../models/UserCoin.js';
 import mongoose from 'mongoose';
 
 // Release coins to auction by category
@@ -19,35 +19,29 @@ const releaseCoinsToAuction = async (auctionSessionId = null) => {
     
     console.log('✅ Database connection confirmed');
     
-    // First check if we have any coins at all
-    const totalCoins = await Coin.countDocuments().maxTimeMS(5000);
-    const approvedCoins = await Coin.countDocuments({ isApproved: true }).maxTimeMS(5000);
-    const availableCoins = await Coin.countDocuments({ isApproved: true, isInAuction: false }).maxTimeMS(5000);
+    // Check user coins
+    const totalUserCoins = await UserCoin.countDocuments().maxTimeMS(5000);
+    const approvedUserCoins = await UserCoin.countDocuments({ 
+      isApproved: true, 
+      isInAuction: false, 
+      isLocked: false 
+    }).maxTimeMS(5000);
     
-    console.log(`📊 Database status: Total coins: ${totalCoins}, Approved: ${approvedCoins}, Available: ${availableCoins}`);
+    console.log(`📊 User coins: ${totalUserCoins} (${approvedUserCoins} available for auction)`);
     
-    if (totalCoins === 0) {
+    if (totalUserCoins === 0) {
       return {
         success: false,
-        message: 'No coins found in database. Please create some coins first.',
+        message: 'No coins found in database.',
         results: {},
         coinIds: []
       };
     }
     
-    if (approvedCoins === 0) {
+    if (approvedUserCoins === 0) {
       return {
         success: false,
-        message: 'No approved coins found. Please approve some coins first.',
-        results: {},
-        coinIds: []
-      };
-    }
-    
-    if (availableCoins === 0) {
-      return {
-        success: false,
-        message: 'No coins available for auction. All approved coins are already in auction.',
+        message: 'No coins available for auction.',
         results: {},
         coinIds: []
       };
@@ -60,33 +54,35 @@ const releaseCoinsToAuction = async (auctionSessionId = null) => {
     for (const category of categories) {
       console.log(`🔍 Checking ${category}...`);
       
-      // Find up to 100 approved coins not in auction for this category
-      const coinsToRelease = await Coin.find({
+      // Find user coins for this category (must be unlocked, approved, and not in auction)
+      const userCoinsToRelease = await UserCoin.find({
         category,
         isApproved: true,
-        isInAuction: false
-      }).limit(100).maxTimeMS(5000);
+        isInAuction: false,
+        isLocked: false
+      })
+      .limit(50)
+      .maxTimeMS(5000);
 
-      console.log(`📋 Found ${coinsToRelease.length} coins in ${category}`);
+      console.log(`📋 Found ${userCoinsToRelease.length} user coins in ${category}`);
 
-      if (coinsToRelease.length > 0) {
-        const coinIds = coinsToRelease.map(coin => coin._id);
+      let categoryCount = 0;
+
+      // Release user coins
+      if (userCoinsToRelease.length > 0) {
+        const userCoinIds = userCoinsToRelease.map(uc => uc._id);
         
-        // Mark coins as in auction
-        await Coin.updateMany(
-          { _id: { $in: coinIds } },
-          { 
-            isInAuction: true,
-            auctionStartDate: new Date()
-          }
+        await UserCoin.updateMany(
+          { _id: { $in: userCoinIds } },
+          { isInAuction: true }
         ).maxTimeMS(5000);
 
-        allReleasedCoinIds.push(...coinIds);
-        results[category] = coinsToRelease.length;
-        console.log(`✅ Released ${coinsToRelease.length} coins from ${category}`);
-      } else {
-        results[category] = 0;
+        allReleasedCoinIds.push(...userCoinIds);
+        categoryCount += userCoinsToRelease.length;
       }
+
+      results[category] = categoryCount;
+      console.log(`✅ Released ${categoryCount} coins from ${category}`);
     }
 
     const totalReleased = Object.values(results).reduce((sum, count) => sum + count, 0);
@@ -124,20 +120,26 @@ const getAuctionStats = async () => {
     const categories = ['Category A', 'Category B', 'Category C', 'Category D'];
 
     for (const category of categories) {
-      const totalCoins = await Coin.countDocuments({ category });
-      const approvedCoins = await Coin.countDocuments({ category, isApproved: true });
-      const inAuction = await Coin.countDocuments({ category, isInAuction: true });
-      const availableForAuction = await Coin.countDocuments({ 
+      // User coins stats
+      const totalUserCoins = await UserCoin.countDocuments({ category });
+      const approvedUserCoins = await UserCoin.countDocuments({ category, isApproved: true });
+      const userCoinsInAuction = await UserCoin.countDocuments({ category, isInAuction: true });
+      const availableUserCoins = await UserCoin.countDocuments({ 
         category, 
         isApproved: true, 
-        isInAuction: false 
+        isInAuction: false,
+        isLocked: false
       });
 
       stats[category] = {
-        total: totalCoins,
-        approved: approvedCoins,
-        inAuction,
-        availableForAuction
+        userCoins: {
+          total: totalUserCoins,
+          approved: approvedUserCoins,
+          inAuction: userCoinsInAuction,
+          availableForAuction: availableUserCoins
+        },
+        totalInAuction: userCoinsInAuction,
+        totalAvailable: availableUserCoins
       };
     }
 

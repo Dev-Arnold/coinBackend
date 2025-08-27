@@ -1,11 +1,20 @@
 import mongoose from 'mongoose';
 
-// User's purchased coins (instances of admin-defined coins)
+// User's purchased coins
 const userCoinSchema = new mongoose.Schema({
-  coin: {
-    type: mongoose.Schema.ObjectId,
-    ref: 'Coin',
-    required: [true, 'UserCoin must reference a Coin']
+  category: {
+    type: String,
+    enum: ['Category A', 'Category B', 'Category C', 'Category D'],
+    required: [true, 'UserCoin must have a category']
+  },
+  plan: {
+    type: String,
+    required: [true, 'UserCoin must have a plan'],
+    enum: ['5days', '10days', '30days']
+  },
+  profitPercentage: {
+    type: Number,
+    required: [true, 'UserCoin must have profit percentage']
   },
   owner: {
     type: mongoose.Schema.ObjectId,
@@ -13,6 +22,10 @@ const userCoinSchema = new mongoose.Schema({
     required: [true, 'UserCoin must have an owner']
   },
   seller: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'User'
+  },
+  boughtFrom: {
     type: mongoose.Schema.ObjectId,
     ref: 'User'
   },
@@ -42,49 +55,85 @@ const userCoinSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  isBonusCoin: {
+    type: Boolean,
+    default: false
+  },
   createdAt: {
     type: Date,
     default: Date.now
   }
 });
 
-// Calculate current value based on linked coin's plan and profit percentage
-userCoinSchema.methods.calculateCurrentValue = async function() {
-  // Populate the linked coin to get plan and profitPercentage
-  await this.populate('coin');
+// Set profit percentage based on plan
+userCoinSchema.pre('save', function(next) {
+  if (this.isModified('plan')) {
+    switch(this.plan) {
+      case '5days':
+        this.profitPercentage = 35;
+        break;
+      case '10days':
+        this.profitPercentage = 107;
+        break;
+      case '30days':
+        this.profitPercentage = 215;
+        break;
+    }
+  }
   
-  if (!this.purchaseDate || !this.coin) return this.currentPrice;
+  // Set category based on current price
+  if (this.isModified('currentPrice')) {
+    if (this.currentPrice >= 10000 && this.currentPrice <= 100000) {
+      this.category = 'Category A';
+    } else if (this.currentPrice > 100000 && this.currentPrice <= 250000) {
+      this.category = 'Category B';
+    } else if (this.currentPrice > 250000 && this.currentPrice <= 500000) {
+      this.category = 'Category C';
+    } else if (this.currentPrice > 500000 && this.currentPrice <= 1000000) {
+      this.category = 'Category D';
+    }
+  }
+  
+  next();
+});
+
+// Calculate current value based on plan and profit percentage
+userCoinSchema.methods.calculateCurrentValue = function() {
+  if (!this.purchaseDate) return this.currentPrice;
   
   const daysHeld = Math.floor((Date.now() - this.purchaseDate) / (1000 * 60 * 60 * 24));
-  const planDays = parseInt(this.coin.plan.replace('days', ''));
-  const dailyGrowth = this.coin.profitPercentage / planDays / 100;
+  const planDays = parseInt(this.plan.replace('days', ''));
+  const dailyGrowth = this.profitPercentage / planDays / 100;
   
   return Math.floor(this.currentPrice * (1 + (dailyGrowth * daysHeld)));
 };
 
 // Check if coin has matured (completed its plan days)
-userCoinSchema.methods.hasMatured = async function() {
-  await this.populate('coin');
-  if (!this.purchaseDate || !this.coin) return false;
+userCoinSchema.methods.hasMatured = function() {
+  // Bonus coins are instantly matured
+  if (this.isBonusCoin) return true;
+  
+  if (!this.purchaseDate) return false;
   
   const daysHeld = Math.floor((Date.now() - this.purchaseDate) / (1000 * 60 * 60 * 24));
-  const planDays = parseInt(this.coin.plan.replace('days', ''));
+  const planDays = parseInt(this.plan.replace('days', ''));
   
   return daysHeld >= planDays;
 };
 
 // Get profit information
-userCoinSchema.methods.getProfitInfo = async function() {
-  const currentValue = await this.calculateCurrentValue();
+userCoinSchema.methods.getProfitInfo = function() {
+  const currentValue = this.calculateCurrentValue();
   const profit = currentValue - this.currentPrice;
   const profitPercentage = ((profit / this.currentPrice) * 100).toFixed(2);
-  const isMatured = await this.hasMatured();
+  const isMatured = this.hasMatured();
   
   return {
     currentValue,
     profit,
     profitPercentage,
     isMatured,
+    isBonusCoin: this.isBonusCoin,
     canSell: isMatured && !this.isLocked
   };
 };

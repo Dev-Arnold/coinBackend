@@ -10,21 +10,19 @@ const getMyCoins = async (req, res, next) => {
     const userId = req.user.id;
 
     const userCoins = await UserCoin.find({ owner: userId })
-      .populate('coin', ' category plan basePrice profitPercentage')
       .populate('seller', 'name')
+      .populate('boughtFrom', 'name')
       .sort('-createdAt');
 
     // Calculate current values for each user coin
-    const coinsWithValues = await Promise.all(
-      userCoins.map(async (userCoin) => {
-        const profitInfo = await userCoin.getProfitInfo();
-        
-        return {
-          ...userCoin.toObject(),
-          ...profitInfo
-        };
-      })
-    );
+    const coinsWithValues = userCoins.map((userCoin) => {
+      const profitInfo = userCoin.getProfitInfo();
+      
+      return {
+        ...userCoin.toObject(),
+        ...profitInfo
+      };
+    });
 
     // Calculate total portfolio value
     const totalInvestment = coinsWithValues.reduce((sum, coin) => sum + coin.currentPrice, 0);
@@ -58,6 +56,10 @@ const getAvailableCoins = async (req, res, next) => {
       isInAuction: true 
     }).sort('category plan');
 
+    if(!coins || coins.length === 0){
+      return res.status(400).json({message:"No coins available for auction"})
+    }
+
     // Group by category
     const coinsByCategory = coins.reduce((acc, coin) => {
       if (!acc[coin.category]) {
@@ -82,7 +84,6 @@ const getAvailableCoins = async (req, res, next) => {
 const getUserCoin = async (req, res, next) => {
   try {
     const userCoin = await UserCoin.findById(req.params.id)
-      .populate('coin', ' category plan basePrice profitPercentage')
       .populate('owner', 'name email')
       .populate('seller', 'name email phone bankDetails');
 
@@ -91,7 +92,7 @@ const getUserCoin = async (req, res, next) => {
     }
 
     // Calculate current value and profit
-    const profitInfo = await userCoin.getProfitInfo();
+    const profitInfo = userCoin.getProfitInfo();
 
     res.status(200).json({
       status: 'success',
@@ -143,27 +144,16 @@ const uploadPaymentProof = async (req, res, next) => {
       return next(new AppError('Payment deadline has passed. Credit score reduced.', 400));
     }
 
-    // Update transaction with payment proof
+    // Update transaction with payment proof - wait for seller confirmation
     transaction.paymentProof = req.file.path;
     transaction.status = 'payment_uploaded';
     await transaction.save();
 
-    // Create UserCoin for the buyer
-    const coin = await Coin.findById(transaction.coin);
-    const userCoin = await UserCoin.create({
-      coin: transaction.coin,
-      owner: userId,
-      currentPrice: transaction.amount,
-      isApproved: true,
-      status: 'locked'
-    });
-
     res.status(200).json({
       status: 'success',
-      message: 'Payment proof uploaded successfully. Coin added to your portfolio.',
+      message: 'Payment proof uploaded successfully. Waiting for seller to release coin.',
       data: {
-        transaction,
-        userCoin
+        transaction
       }
     });
   } catch (error) {
@@ -177,7 +167,7 @@ const makeRecommitmentBid = async (req, res, next) => {
     const { userCoinId } = req.params;
     const userId = req.user.id;
 
-    const userCoin = await UserCoin.findById(userCoinId).populate('coin');
+    const userCoin = await UserCoin.findById(userCoinId);
     if (!userCoin || userCoin.owner.toString() !== userId) {
       return next(new AppError('User coin not found or not owned by you', 404));
     }
@@ -186,15 +176,14 @@ const makeRecommitmentBid = async (req, res, next) => {
       return next(new AppError('User coin is not locked', 400));
     }
 
-    const currentValue = await userCoin.calculateCurrentValue();
+    const currentValue = userCoin.calculateCurrentValue();
 
     // Create recommitment transaction (100% of current value)
     const transaction = await Transaction.create({
       buyer: userId,
-      coin: userCoin.coin._id,
       userCoin: userCoinId,
       amount: currentValue,
-      plan: userCoin.coin.plan,
+      plan: userCoin.plan,
       paymentMethod: 'balance', // Use account balance
       status: 'confirmed',
       completedAt: new Date()
@@ -235,12 +224,12 @@ const submitUserCoinForApproval = async (req, res, next) => {
     const { userCoinId } = req.params;
     const userId = req.user.id;
 
-    const userCoin = await UserCoin.findById(userCoinId).populate('coin');
+    const userCoin = await UserCoin.findById(userCoinId);
     if (!userCoin || userCoin.owner.toString() !== userId) {
       return next(new AppError('User coin not found or not owned by you', 404));
     }
 
-    // const isMatured = await userCoin.hasMatured();
+    // const isMatured = userCoin.hasMatured();
     // if (!isMatured) {
     //   return next(new AppError('Coin has not matured yet. Cannot submit for approval.', 400));
     // }
@@ -270,37 +259,126 @@ const submitUserCoinForApproval = async (req, res, next) => {
   }
 };
 
-// List user coin for auction (only for approved unlocked coins)
+// Get seller bank details for a coin
+const getSellerBankDetails = async (req, res, next) => {
+  try {
+    const { coinId } = req.params;
+
+    // For user coins, get the seller's bank details
+    const userCoin = await UserCoin.findById(coinId).populate('owner', 'firstName lastName bankDetails');
+    console.log(userCoin)
+    if (!userCoin) {
+      return next(new AppError('User coin not found', 404));
+    }
+    let seller = userCoin.owner;
+
+    if (!seller || !seller.bankDetails) {
+      return next(new AppError('Seller bank details not available', 404));
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        seller: {
+          name: seller.firstName + ' ' + seller.lastName,
+          bankDetails: seller.bankDetails
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Release coin to buyer (seller confirms payment)
+const releaseCoinToBuyer = async (req, res, next) => {
+  try {
+    const { transactionId } = req.params;
+    const userId = req.user.id;
+
+    const transaction = await Transaction.findById(transactionId)
+      .populate('buyer', 'name');
+    
+    if (!transaction) {
+      return next(new AppError('Transaction not found', 404));
+    }
+
+    if (transaction.status !== 'payment_uploaded') {
+      return next(new AppError('Payment proof must be uploaded first', 400));
+    }
+
+    // Get original user coin to copy properties
+    const originalUserCoin = await UserCoin.findById(transaction.userCoin);
+    if (!originalUserCoin) {
+      return next(new AppError('Original coin not found', 404));
+    }
+
+    // Check if user is authorized to release (either seller or owner)
+    const sellerId = transaction.seller || originalUserCoin.owner;
+    if (sellerId.toString() !== userId) {
+      return next(new AppError('You are not authorized to release this coin', 403));
+    }
+    
+    // Create UserCoin for the buyer
+    const newUserCoin = await UserCoin.create({
+      category: originalUserCoin.category,
+      plan: originalUserCoin.plan,
+      profitPercentage: originalUserCoin.profitPercentage,
+      owner: transaction.buyer._id,
+      currentPrice: transaction.amount,
+      boughtFrom: originalUserCoin.owner,
+      isApproved: true,
+      status: 'locked'
+    });
+
+    // Update transaction status
+    transaction.status = 'confirmed';
+    transaction.completedAt = new Date();
+    await transaction.save();
+
+    // Delete original user coin
+    await UserCoin.findByIdAndDelete(transaction.userCoin);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Coin released to buyer successfully',
+      data: {
+        transaction,
+        newUserCoin
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// List user coin for auction (only for matured coins)
 const listUserCoinForAuction = async (req, res, next) => {
   try {
     const { userCoinId } = req.params;
     const { newPrice, collectProfit = false } = req.body;
     const userId = req.user.id;
 
-    const userCoin = await UserCoin.findById(userCoinId).populate('coin');
+    const userCoin = await UserCoin.findById(userCoinId);
     if (!userCoin || userCoin.owner.toString() !== userId) {
       return next(new AppError('User coin not found or not owned by you', 404));
     }
 
-    if (userCoin.isLocked) {
-      return next(new AppError('Coin is locked. Submit for admin approval first.', 400));
-    }
-
-    if (!userCoin.isApproved) {
-      return next(new AppError('Coin must be approved by admin before listing.', 400));
+    const isMatured = userCoin.hasMatured();
+    if (!isMatured) {
+      return next(new AppError('Only matured coins can be listed for auction', 400));
     }
 
     if (userCoin.isInAuction) {
       return next(new AppError('User coin is already in auction', 400));
     }
 
-    const isMatured = await userCoin.hasMatured();
     let profitCollected = 0;
     let newBalance = 0;
 
-    // If coin is matured and user wants to collect profit
-    if (isMatured && collectProfit) {
-      const finalValue = await userCoin.calculateCurrentValue();
+    // If user wants to collect profit
+    if (collectProfit) {
+      const finalValue = userCoin.calculateCurrentValue();
       profitCollected = finalValue - userCoin.currentPrice;
       
       // Add profit to user balance
@@ -318,12 +396,13 @@ const listUserCoinForAuction = async (req, res, next) => {
     userCoin.currentPrice = newPrice || userCoin.currentPrice;
     userCoin.seller = userId;
     userCoin.isInAuction = true;
-    if (!isMatured || !collectProfit) userCoin.status = 'available';
+    userCoin.isLocked = false;
+    userCoin.status = 'available';
     await userCoin.save();
 
     const message = profitCollected > 0 
       ? `Profit collected! ₦${profitCollected.toLocaleString()} added to your balance. Coin listed for auction.`
-      : 'User coin listed for auction successfully';
+      : 'Matured coin listed for auction successfully';
 
     res.status(200).json({
       status: 'success',
@@ -345,5 +424,7 @@ export {
   uploadPaymentProof, 
   makeRecommitmentBid, 
   submitUserCoinForApproval,
+  getSellerBankDetails,
+  releaseCoinToBuyer,
   listUserCoinForAuction 
 };

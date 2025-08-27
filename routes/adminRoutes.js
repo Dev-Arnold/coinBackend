@@ -2,10 +2,8 @@ import express from 'express';
 import { 
   getAllUsers, 
   getUser, 
-  createCoin,
   getAllCoins,
   getPendingCoins,
-  approveCoin,
   assignCoinToUser, 
   getPendingUserCoins, 
   approveUserCoin, 
@@ -15,10 +13,10 @@ import {
   getAuctionStatistics,
   startAuctionManually,
   endAuctionManually,
-  resetCoinsFromAuction,
-  getUsersWithKyc
+  resetCoinsFromAuction
 } from '../controllers/adminController.js';
 import { protect, isAdmin } from '../middlewares/authMiddleware.js';
+import { validateRequest, schemas } from '../middlewares/validateRequest.js';
 
 const router = express.Router();
 
@@ -27,15 +25,12 @@ router.use(protect, isAdmin);
 
 // User management routes
 router.get('/users', getAllUsers);
-router.get('/users-kyc', getUsersWithKyc);
 router.get('/users/:id', getUser);
 router.patch('/users/:userId/toggle-block', toggleUserBlock);
 
 // Coin type management routes
-router.post('/create', createCoin);
 router.get('/coins', getAllCoins);
 router.get('/pending-coins', getPendingCoins);
-router.patch('/coins/:coinId/approve', approveCoin);
 
 // Auction management routes
 router.post('/release-coins-auction', releaseCoinsForAuction);
@@ -45,9 +40,9 @@ router.post('/end-auction', endAuctionManually);
 router.post('/reset-coins', resetCoinsFromAuction);
 
 // User coin management routes
-router.post('/assign-coin', assignCoinToUser);
+router.post('/assign-coin', validateRequest(schemas.assignCoin), assignCoinToUser);
 router.get('/pending-user-coins', getPendingUserCoins);
-router.patch('/user-coins/:userCoinId/approve', approveUserCoin);
+router.patch('/coins/:userCoinId/approve', approveUserCoin);
 
 // Statistics route
 router.get('/stats', getStats);
