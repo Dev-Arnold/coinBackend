@@ -47,7 +47,6 @@ const schemas = {
 
   // Assign coin to user validation
   assignCoin: Joi.object({
-    userId: Joi.string().required(),
     plan: Joi.string().valid('5days', '10days', '30days').required(),
     currentPrice: Joi.number().min(10000).max(1000000).required(),
     isBonusCoin: Joi.boolean().optional()

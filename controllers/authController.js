@@ -121,4 +121,62 @@ const updateMe = async (req, res, next) => {
   }
 };
 
-export { register, login, logout, getMe, updateMe };
+// Get referral earnings and status
+const getReferralStatus = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id)
+      .select('referralEarnings referralBonusRequests referralCode');
+
+    const canRequest = user.referralEarnings >= 10000;
+    const pendingRequest = user.referralBonusRequests.find(req => req.status === 'pending');
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        referralEarnings: user.referralEarnings,
+        referralCode: user.referralCode,
+        canRequestBonus: canRequest,
+        hasPendingRequest: !!pendingRequest,
+        requests: user.referralBonusRequests
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Request referral bonus conversion
+const requestReferralBonus = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    if (user.referralEarnings < 10000) {
+      return next(new AppError('Minimum ₦10,000 referral earnings required', 400));
+    }
+
+    // Check if there's already a pending request
+    const pendingRequest = user.referralBonusRequests.find(req => req.status === 'pending');
+    if (pendingRequest) {
+      return next(new AppError('You already have a pending referral bonus request', 400));
+    }
+
+    // Add new request
+    user.referralBonusRequests.push({
+      amount: user.referralEarnings
+    });
+    await user.save();
+
+    res.status(201).json({
+      status: 'success',
+      message: 'Referral bonus request submitted successfully',
+      data: {
+        requestAmount: user.referralEarnings
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export { register, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus };

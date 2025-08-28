@@ -13,7 +13,9 @@ import {
   getAuctionStatistics,
   startAuctionManually,
   endAuctionManually,
-  resetCoinsFromAuction
+  resetCoinsFromAuction,
+  getPendingReferralRequests,
+  approveReferralBonus
 } from '../controllers/adminController.js';
 import { protect, isAdmin } from '../middlewares/authMiddleware.js';
 import { validateRequest, schemas } from '../middlewares/validateRequest.js';
@@ -40,11 +42,15 @@ router.post('/end-auction', endAuctionManually);
 router.post('/reset-coins', resetCoinsFromAuction);
 
 // User coin management routes
-router.post('/assign-coin', validateRequest(schemas.assignCoin), assignCoinToUser);
+router.post('/:userId/assign-coin', validateRequest(schemas.assignCoin), assignCoinToUser);
 router.get('/pending-user-coins', getPendingUserCoins);
 router.patch('/coins/:userCoinId/approve', approveUserCoin);
 
 // Statistics route
 router.get('/stats', getStats);
+
+// Referral bonus routes
+router.get('/referral-requests', getPendingReferralRequests);
+router.patch('/referral-requests/:userId/:requestId/approve', approveReferralBonus);
 
 export default router;

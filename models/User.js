@@ -59,6 +59,26 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  referralBonusRequests: [{
+    amount: {
+      type: Number,
+      required: true
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
+    requestedAt: {
+      type: Date,
+      default: Date.now
+    },
+    processedAt: Date,
+    processedBy: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User'
+    }
+  }],
   bankDetails: {
     accountName: {
       type: String,

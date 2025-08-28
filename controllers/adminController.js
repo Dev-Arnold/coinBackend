@@ -57,7 +57,10 @@ const getUser = async (req, res, next) => {
 // Manually assign coin to user
 const assignCoinToUser = async (req, res, next) => {
   try {
-    const { userId, plan, currentPrice, isBonusCoin = false } = req.body;
+    const { plan, currentPrice, isBonusCoin = false } = req.body;
+
+    let {userId} = req.params; 
+    console.log(userId)
 
     // Check if user exists
     const user = await User.findById(userId);
@@ -416,6 +419,94 @@ const getStats = async (req, res, next) => {
   }
 };
 
+// Get pending referral bonus requests
+const getPendingReferralRequests = async (req, res, next) => {
+  try {
+    const users = await User.find({
+      'referralBonusRequests.status': 'pending'
+    }).select('firstName lastName email referralBonusRequests');
+
+    const pendingRequests = [];
+    users.forEach(user => {
+      user.referralBonusRequests.forEach(request => {
+        if (request.status === 'pending') {
+          pendingRequests.push({
+            _id: request._id,
+            user: {
+              _id: user._id,
+              name: `${user.firstName} ${user.lastName}`,
+              email: user.email
+            },
+            amount: request.amount,
+            requestedAt: request.requestedAt
+          });
+        }
+      });
+    });
+
+    res.status(200).json({
+      status: 'success',
+      results: pendingRequests.length,
+      data: {
+        requests: pendingRequests
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Approve referral bonus request and create bonus coin
+const approveReferralBonus = async (req, res, next) => {
+  try {
+    const { userId, requestId } = req.params;
+    const adminId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+
+    const request = user.referralBonusRequests.id(requestId);
+    if (!request || request.status !== 'pending') {
+      return next(new AppError('Request not found or already processed', 404));
+    }
+
+    // Create bonus coin with referral earnings as price
+    const bonusCoin = await UserCoin.create({
+      category: 'Category A',
+      plan: '10days',
+      profitPercentage: 107,
+      owner: userId,
+      currentPrice: request.amount,
+      isApproved: true,
+      isBonusCoin: true,
+      status: 'available',
+      isLocked: false
+    });
+
+    // Update request status
+    request.status = 'approved';
+    request.processedAt = new Date();
+    request.processedBy = adminId;
+
+    // Reset referral earnings
+    user.referralEarnings = 0;
+    await user.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Referral bonus approved and bonus coin created',
+      data: {
+        bonusCoin,
+        request
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export { 
   getAllUsers, 
   getUser, 
@@ -430,5 +521,7 @@ export {
   getAuctionStatistics,
   startAuctionManually,
   endAuctionManually,
-  resetCoinsFromAuction
+  resetCoinsFromAuction,
+  getPendingReferralRequests,
+  approveReferralBonus
 };

@@ -1,5 +1,5 @@
 import express from 'express';
-import { register, login, logout, getMe, updateMe } from '../controllers/authController.js';
+import { register, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus } from '../controllers/authController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { validateRequest, schemas } from '../middlewares/validateRequest.js';
 
@@ -15,5 +15,7 @@ router.use(protect); // All routes after this middleware are protected
 
 router.get('/me', getMe);
 router.patch('/updateMe', validateRequest(schemas.updateProfile), updateMe);
+router.get('/referral-status', getReferralStatus);
+router.post('/request-referral-bonus', requestReferralBonus);
 
 export default router;
