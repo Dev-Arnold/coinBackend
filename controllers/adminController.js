@@ -5,6 +5,7 @@ import Transaction from '../models/Transaction.js';
 import AuctionSession from '../models/AuctionSession.js';
 import AppError from '../utils/AppError.js';
 import { releaseCoinsToAuction, getAuctionStats } from '../services/auctionService.js';
+import { updateAllUserProfits } from '../services/profitService.js';
 
 // Get all users for admin management
 const getAllUsers = async (req, res, next) => {
@@ -507,6 +508,24 @@ const approveReferralBonus = async (req, res, next) => {
   }
 };
 
+// Manually update daily profits for all users
+const updateDailyProfits = async (req, res, next) => {
+  try {
+    const result = await updateAllUserProfits();
+    
+    res.status(200).json({
+      status: 'success',
+      message: `Daily profits updated for ${result.usersUpdated} users`,
+      data: {
+        usersUpdated: result.usersUpdated,
+        totalProfitAdded: result.totalProfitAdded
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export { 
   getAllUsers, 
   getUser, 
@@ -523,5 +542,6 @@ export {
   endAuctionManually,
   resetCoinsFromAuction,
   getPendingReferralRequests,
-  approveReferralBonus
+  approveReferralBonus,
+  updateDailyProfits
 };

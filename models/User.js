@@ -129,5 +129,71 @@ userSchema.methods.reduceCreditScore = function(points = 10) {
   return this.save();
 };
 
+// Calculate total portfolio value including coins
+userSchema.methods.calculateTotalBalance = async function() {
+  const UserCoin = mongoose.model('UserCoin');
+  const userCoins = await UserCoin.find({ owner: this._id, status: { $ne: 'sold' } });
+  
+  let totalCoinValue = 0;
+  for (const coin of userCoins) {
+    const currentValue = await coin.calculateCurrentValue();
+    totalCoinValue += currentValue;
+  }
+  
+  return this.balance + totalCoinValue;
+};
+
+// Update balance to reflect total value (referrals + coin profits)
+userSchema.methods.updateBalance = async function() {
+  const UserCoin = mongoose.model('UserCoin');
+  const userCoins = await UserCoin.find({ owner: this._id, status: { $ne: 'sold' } });
+  
+  let totalCoinValue = 0;
+  for (const coin of userCoins) {
+    const profitInfo = await coin.getProfitInfo();
+    totalCoinValue += profitInfo.profit; // Only add the profit, not the full value
+  }
+  
+  // Balance = referral earnings + coin profits
+  this.balance = this.referralEarnings + totalCoinValue;
+  await this.save();
+  
+  return this.balance;
+};
+
+// Update daily profits for all user coins
+userSchema.methods.updateDailyProfits = async function() {
+  const UserCoin = mongoose.model('UserCoin');
+  const userCoins = await UserCoin.find({ 
+    owner: this._id, 
+    status: { $in: ['locked', 'available'] },
+    isApproved: true
+  });
+  
+  let totalDailyProfit = 0;
+  const now = new Date();
+  
+  for (const coin of userCoins) {
+    const daysSinceLastUpdate = Math.floor((now - coin.lastProfitUpdate) / (1000 * 60 * 60 * 24));
+    
+    if (daysSinceLastUpdate >= 1) {
+      const planDays = parseInt(coin.plan.replace('days', ''));
+      const dailyProfitRate = coin.profitPercentage / planDays / 100;
+      const dailyProfit = coin.currentPrice * dailyProfitRate * daysSinceLastUpdate;
+      
+      totalDailyProfit += dailyProfit;
+      
+      // Update last profit update date
+      coin.lastProfitUpdate = now;
+      await coin.save();
+    }
+  }
+  
+  // Update balance to reflect new profits
+  await this.updateBalance();
+  
+  return totalDailyProfit;
+};
+
 const User = mongoose.model('User', userSchema);
 export default User;

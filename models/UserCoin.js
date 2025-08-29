@@ -59,6 +59,10 @@ const userCoinSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  lastProfitUpdate: {
+    type: Date,
+    default: Date.now
+  },
   createdAt: {
     type: Date,
     default: Date.now

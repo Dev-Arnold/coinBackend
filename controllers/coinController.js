@@ -331,6 +331,15 @@ const releaseCoinToBuyer = async (req, res, next) => {
       status: 'locked'
     });
 
+    // Update buyer's balance to reflect new coin
+    const buyer = await User.findById(transaction.buyer._id);
+    await buyer.updateBalance();
+
+    // Update seller's balance (add sale proceeds)
+    const seller = await User.findById(originalUserCoin.owner);
+    seller.balance += transaction.amount;
+    await seller.updateBalance();
+
     // Update transaction status
     transaction.status = 'confirmed';
     transaction.completedAt = new Date();

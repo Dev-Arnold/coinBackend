@@ -104,8 +104,6 @@ const createAuctionSession = async (startTime, endTime) => {
     // Wait for database to be ready
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Release coins to auction
-    const releaseResult = await releaseCoinsToAuction();
     
     if (!releaseResult.success) {
       console.log('No coins released for auction:', releaseResult.message);

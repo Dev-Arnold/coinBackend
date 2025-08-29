@@ -15,7 +15,8 @@ import {
   endAuctionManually,
   resetCoinsFromAuction,
   getPendingReferralRequests,
-  approveReferralBonus
+  approveReferralBonus,
+  updateDailyProfits
 } from '../controllers/adminController.js';
 import { protect, isAdmin } from '../middlewares/authMiddleware.js';
 import { validateRequest, schemas } from '../middlewares/validateRequest.js';
@@ -52,5 +53,8 @@ router.get('/stats', getStats);
 // Referral bonus routes
 router.get('/referral-requests', getPendingReferralRequests);
 router.patch('/referral-requests/:userId/:requestId/approve', approveReferralBonus);
+
+// Profit update route
+router.post('/update-daily-profits', updateDailyProfits);
 
 export default router;

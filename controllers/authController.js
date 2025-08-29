@@ -22,8 +22,8 @@ const register = async (req, res, next) => {
       if (referrer) {
         userData.referredBy = referrer._id;
         // Give referral bonus to referrer
-        referrer.balance += parseInt(process.env.REFERRAL_BONUS);
         referrer.referralEarnings += parseInt(process.env.REFERRAL_BONUS);
+        await referrer.updateBalance();
         await referrer.save();
       }
     }
@@ -82,10 +82,20 @@ const getMe = async (req, res, next) => {
     const user = await User.findById(req.user.id)
       .populate('referredBy', 'firstName lastName email');
     
+    // Update daily profits
+    const dailyProfitAdded = await user.updateDailyProfits();
+    
+    // Calculate total balance including coin values
+    const totalBalance = await user.calculateTotalBalance();
+    
     res.status(200).json({
       status: 'success',
       data: {
-        user
+        user: {
+          ...user.toObject(),
+          totalBalance,
+          dailyProfitAdded
+        }
       }
     });
   } catch (error) {
@@ -145,6 +155,45 @@ const getReferralStatus = async (req, res, next) => {
   }
 };
 
+// Get dashboard with updated balances
+const getDashboard = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    
+    // Update daily profits
+    const dailyProfitAdded = await user.updateDailyProfits();
+    
+    // Calculate total balance including coin values
+    const totalBalance = await user.calculateTotalBalance();
+    
+    // Get user coins with current values
+    const UserCoin = (await import('../models/UserCoin.js')).default;
+    const userCoins = await UserCoin.find({ 
+      owner: req.user.id, 
+      status: { $ne: 'sold' } 
+    });
+    
+    const coinPortfolio = userCoins.map(coin => ({
+      ...coin.toObject(),
+      currentValue: coin.calculateCurrentValue(),
+      profitInfo: coin.getProfitInfo()
+    }));
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        cashBalance: user.balance,
+        totalBalance,
+        dailyProfitAdded,
+        coinPortfolio,
+        totalCoins: userCoins.length
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Request referral bonus conversion
 const requestReferralBonus = async (req, res, next) => {
   try {
@@ -179,4 +228,4 @@ const requestReferralBonus = async (req, res, next) => {
   }
 };
 
-export { register, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus };
+export { register, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus, getDashboard };
