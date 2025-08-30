@@ -79,10 +79,10 @@ const getAuctionCoins = async (req, res, next) => {
   }
 };
 
-// Place bid on a user coin
-const placeBid = async (req, res, next) => {
+// Reserve coin for purchase (step 1)
+const reserveCoin = async (req, res, next) => {
   try {
-    const { coinId, paymentMethod } = req.body;
+    const { coinId, plan } = req.body;
     const userId = req.user.id;
 
     // Check if auction is active
@@ -92,13 +92,13 @@ const placeBid = async (req, res, next) => {
     }
 
     // Find the user coin
-    const userCoin = await UserCoin.findById(coinId);
+    const userCoin = await UserCoin.findById(coinId).populate('owner', 'firstName lastName bankDetails');
     if (!userCoin || !userCoin.isInAuction || !userCoin.isApproved) {
-      return next(new AppError('Coin is not available for bidding', 400));
+      return next(new AppError('Coin is not available', 400));
     }
     
-    if (userCoin.owner.toString() === userId) {
-      return next(new AppError('You cannot bid on your own coin', 400));
+    if (userCoin.owner._id.toString() === userId) {
+      return next(new AppError('You cannot buy your own coin', 400));
     }
 
     // Check if user is blocked
@@ -107,37 +107,22 @@ const placeBid = async (req, res, next) => {
       return next(new AppError('Your account is blocked', 403));
     }
 
-    // Create transaction
-    const paymentDeadline = new Date(Date.now() + parseInt(process.env.PAYMENT_TIMEOUT_MINUTES) * 60 * 1000);
-    
-    const transaction = await Transaction.create({
-      buyer: userId,
-      userCoin: coinId,
-      seller: userCoin.seller || userCoin.owner,
-      amount: userCoin.currentPrice,
-      plan: userCoin.plan,
-      paymentMethod,
-      paymentDeadline,
-      auctionSession: currentAuction._id
-    });
-
-    // Remove coin from auction
+    // Temporarily remove from auction
     userCoin.isInAuction = false;
     await userCoin.save();
 
-    // Add user to auction participants if not already added
-    if (!currentAuction.participants.some(p => p.user.toString() === userId)) {
-      currentAuction.participants.push({ user: userId });
-    }
-    currentAuction.totalBids += 1;
-    await currentAuction.save();
-
-    res.status(201).json({
+    res.status(200).json({
       status: 'success',
-      message: 'Bid placed successfully. Please complete payment within 15 minutes.',
+      message: 'Coin reserved successfully. Complete payment within 15 minutes.',
       data: {
-        transaction,
-        paymentDeadline
+        coinId,
+        plan,
+        amount: userCoin.currentPrice,
+        seller: {
+          name: `${userCoin.owner.firstName} ${userCoin.owner.lastName}`,
+          bankDetails: userCoin.owner.bankDetails
+        },
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000)
       }
     });
   } catch (error) {
@@ -145,39 +130,70 @@ const placeBid = async (req, res, next) => {
   }
 };
 
-// Cancel bid (returns coin to auction)
-const cancelBid = async (req, res, next) => {
+// Submit bid with payment proof (step 2)
+const submitBidWithProof = async (req, res, next) => {
   try {
-    const { transactionId } = req.params;
+    const { coinId, plan, paymentMethod } = req.body;
+    console.log(req.body)
     const userId = req.user.id;
 
-    const transaction = await Transaction.findById(transactionId);
-    if (!transaction || transaction.buyer.toString() !== userId) {
-      return next(new AppError('Transaction not found', 404));
+    // Check if file was uploaded
+    if (!req.file) {
+      return next(new AppError('Please upload payment proof', 400));
     }
 
-    if (transaction.status !== 'pending_payment') {
-      return next(new AppError('Cannot cancel this transaction', 400));
+    // Get coin details
+    const userCoin = await UserCoin.findById(coinId);
+    if (!userCoin) {
+      return next(new AppError('User coin not found', 404));
     }
 
-    // Update transaction status
-    transaction.status = 'cancelled';
-    await transaction.save();
+    // Create transaction
+    const transaction = await Transaction.create({
+      buyer: userId,
+      userCoin: coinId,
+      seller: userCoin.owner,
+      amount: userCoin.currentPrice,
+      plan,
+      paymentMethod,
+      paymentProof: req.file.path,
+      status: 'payment_uploaded',
+      paymentDeadline: new Date(Date.now() + 24 * 60 * 60 * 1000)
+    });
 
-    // Return user coin to auction
-    const userCoin = await UserCoin.findById(transaction.userCoin);
+    res.status(201).json({
+      status: 'success',
+      message: 'Bid submitted successfully. Waiting for seller to release coin.',
+      data: {
+        transaction
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Cancel reservation (returns coin to auction)
+const cancelReservation = async (req, res, next) => {
+  try {
+    const { reservationId } = req.params;
+    const { coinId } = req.body;
+    const userId = req.user.id;
+
+    // Return coin to auction
+    const userCoin = await UserCoin.findById(coinId);
     if (userCoin) {
       userCoin.isInAuction = true;
       await userCoin.save();
     }
 
-    // Reduce user's credit score
+    // Reduce user's credit score for cancellation
     const user = await User.findById(userId);
-    await user.reduceCreditScore(15);
+    await user.reduceCreditScore(5);
 
     res.status(200).json({
       status: 'success',
-      message: 'Bid cancelled. Coin returned to auction. Credit score reduced.',
+      message: 'Reservation cancelled. Coin returned to auction.',
       data: {
         newCreditScore: user.creditScore
       }
@@ -212,7 +228,8 @@ const getMyBids = async (req, res, next) => {
 export { 
   getAuctionStatus, 
   getAuctionCoins, 
-  placeBid, 
-  cancelBid, 
+  reserveCoin,
+  submitBidWithProof, 
+  cancelReservation, 
   getMyBids 
 };

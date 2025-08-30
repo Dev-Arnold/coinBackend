@@ -2,12 +2,14 @@ import express from 'express';
 import { 
   getAuctionStatus, 
   getAuctionCoins, 
-  placeBid, 
-  cancelBid, 
+  reserveCoin,
+  submitBidWithProof,
+  cancelReservation, 
   getMyBids 
 } from '../controllers/auctionController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { validateRequest, schemas } from '../middlewares/validateRequest.js';
+import { paymentUpload } from '../cloudinaryConfig.js';
 
 const router = express.Router();
 
@@ -18,8 +20,9 @@ router.get('/status', getAuctionStatus);
 router.use(protect);
 
 router.get('/coins', getAuctionCoins);
-router.post('/bid', placeBid);
-router.patch('/bid/:transactionId/cancel', cancelBid);
+router.post('/reserve-coin', validateRequest(schemas.reserveCoin), reserveCoin);
+router.post('/submit-bid', paymentUpload.single('paymentProof'), submitBidWithProof);
+router.patch('/cancel-reservation/:reservationId', cancelReservation);
 router.get('/my-bids', getMyBids);
 
 export default router;
