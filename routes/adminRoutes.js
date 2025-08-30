@@ -14,6 +14,7 @@ import {
   startAuctionManually,
   endAuctionManually,
   resetCoinsFromAuction,
+  getActiveTransactions,
   getPendingReferralRequests,
   approveReferralBonus,
   updateDailyProfits
@@ -41,6 +42,7 @@ router.get('/auction-stats', getAuctionStatistics);
 router.post('/start-auction', startAuctionManually);
 router.post('/end-auction', endAuctionManually);
 router.post('/reset-coins', resetCoinsFromAuction);
+router.get('/active-transactions', getActiveTransactions);
 
 // User coin management routes
 router.post('/:userId/assign-coin', validateRequest(schemas.assignCoin), assignCoinToUser);

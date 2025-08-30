@@ -318,6 +318,43 @@ const resetCoinsFromAuction = async (req, res, next) => {
   }
 };
 
+// Get active transactions for admin dashboard
+const getActiveTransactions = async (req, res, next) => {
+  try {
+    const transactions = await Transaction.find({
+      status: { $in: ['pending_payment', 'payment_uploaded'] }
+    })
+    .populate('buyer', 'firstName lastName')
+    .sort('-createdAt');
+
+    const formattedTransactions = transactions.map(t => ({
+      id: t._id,
+      buyer: `${t.buyer.firstName} ${t.buyer.lastName}`,
+      coin: t.userCoin ? `UC${t.userCoin.toString().slice(-3)}` : `C${t.coin.toString().slice(-3)}`,
+      amount: t.amount,
+      status: t.status === 'pending_payment' ? 'Pending Payment' : 'Payment Uploaded',
+      deadline: t.status === 'pending_payment' ? getTimeRemaining(t.paymentDeadline) : '-'
+    }));
+
+    res.status(200).json({
+      status: 'success',
+      data: { transactions: formattedTransactions }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Helper function to get time remaining
+const getTimeRemaining = (deadline) => {
+  const now = new Date();
+  const timeLeft = deadline - now;
+  if (timeLeft <= 0) return 'Expired';
+  
+  const minutes = Math.floor(timeLeft / (1000 * 60));
+  return `${minutes} mins left`;
+};
+
 // Get all user coins pending approval
 const getPendingUserCoins = async (req, res, next) => {
   try {
@@ -391,14 +428,12 @@ const toggleUserBlock = async (req, res, next) => {
 const getStats = async (req, res, next) => {
   try {
     const totalUsers = await User.countDocuments({ role: 'user' });
-    const totalCoinTypes = await Coin.countDocuments();
     const totalUserCoins = await UserCoin.countDocuments();
     const totalTransactions = await Transaction.countDocuments();
     const activeAuctions = await UserCoin.countDocuments({ isInAuction: true });
     
     const recentTransactions = await Transaction.find()
       .populate('buyer', 'name email')
-      .populate('coin', 'name basePrice')
       .sort('-createdAt')
       .limit(10);
 
@@ -407,7 +442,6 @@ const getStats = async (req, res, next) => {
       data: {
         stats: {
           totalUsers,
-          totalCoinTypes,
           totalUserCoins,
           totalTransactions,
           activeAuctions
@@ -541,6 +575,7 @@ export {
   startAuctionManually,
   endAuctionManually,
   resetCoinsFromAuction,
+  getActiveTransactions,
   getPendingReferralRequests,
   approveReferralBonus,
   updateDailyProfits
