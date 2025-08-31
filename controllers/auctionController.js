@@ -225,11 +225,144 @@ const getMyBids = async (req, res, next) => {
   }
 };
 
+// Get all sales transactions for seller
+const getMySales = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { status } = req.query;
+
+    const filter = { seller: userId };
+    if (status) filter.status = status;
+
+    const transactions = await Transaction.find(filter)
+      .populate('buyer', 'firstName lastName email phone')
+      .populate('userCoin', 'category plan currentPrice')
+      .sort('-createdAt');
+
+    res.status(200).json({
+      status: 'success',
+      results: transactions.length,
+      data: { transactions }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get pending sales (payment uploaded, waiting for release)
+const getPendingSales = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    const transactions = await Transaction.find({
+      seller: userId,
+      status: 'payment_uploaded'
+    })
+    .populate('buyer', 'firstName lastName email phone')
+    .populate('userCoin', 'category plan currentPrice')
+    .sort('-createdAt');
+
+    const pendingSales = transactions.map(t => ({
+      _id: t._id,
+      buyer: {
+        name: `${t.buyer.firstName} ${t.buyer.lastName}`,
+        email: t.buyer.email,
+        phone: t.buyer.phone
+      },
+      coin: t.userCoin,
+      amount: t.amount,
+      paymentProof: t.paymentProof,
+      paymentDeadline: t.paymentDeadline,
+      timeRemaining: Math.max(0, Math.floor((t.paymentDeadline - new Date()) / (1000 * 60))),
+      createdAt: t.createdAt
+    }));
+
+    res.status(200).json({
+      status: 'success',
+      results: pendingSales.length,
+      data: { pendingSales }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get sales summary/statistics
+const getSalesSummary = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    const transactions = await Transaction.find({ seller: userId });
+
+    const summary = {
+      totalSales: transactions.length,
+      pendingPayment: transactions.filter(t => t.status === 'payment_uploaded').length,
+      completed: transactions.filter(t => t.status === 'confirmed').length,
+      cancelled: transactions.filter(t => t.status === 'cancelled').length,
+      totalRevenue: transactions
+        .filter(t => t.status === 'confirmed')
+        .reduce((sum, t) => sum + t.amount, 0),
+      pendingRevenue: transactions
+        .filter(t => t.status === 'payment_uploaded')
+        .reduce((sum, t) => sum + t.amount, 0)
+    };
+
+    res.status(200).json({
+      status: 'success',
+      data: { summary }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get single sale details with payment proof
+const getSaleDetails = async (req, res, next) => {
+  try {
+    const { transactionId } = req.params;
+    const userId = req.user.id;
+
+    const transaction = await Transaction.findOne({
+      _id: transactionId,
+      seller: userId
+    })
+    .populate('buyer', 'firstName lastName email phone')
+    .populate('userCoin', 'category plan currentPrice profitPercentage');
+
+    if (!transaction) {
+      return next(new AppError('Transaction not found', 404));
+    }
+
+    const saleDetails = {
+      ...transaction.toObject(),
+      buyer: {
+        name: `${transaction.buyer.firstName} ${transaction.buyer.lastName}`,
+        email: transaction.buyer.email,
+        phone: transaction.buyer.phone
+      },
+      timeRemaining: transaction.paymentDeadline ? 
+        Math.max(0, Math.floor((transaction.paymentDeadline - new Date()) / (1000 * 60))) : null,
+      canRelease: transaction.status === 'payment_uploaded'
+    };
+
+    res.status(200).json({
+      status: 'success',
+      data: { sale: saleDetails }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export { 
   getAuctionStatus, 
   getAuctionCoins, 
   reserveCoin,
   submitBidWithProof, 
   cancelReservation, 
-  getMyBids 
+  getMyBids,
+  getMySales,
+  getPendingSales,
+  getSalesSummary,
+  getSaleDetails
 };

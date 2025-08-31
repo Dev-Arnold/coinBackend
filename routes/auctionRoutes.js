@@ -5,7 +5,11 @@ import {
   reserveCoin,
   submitBidWithProof,
   cancelReservation, 
-  getMyBids 
+  getMyBids,
+  getMySales,
+  getPendingSales,
+  getSalesSummary,
+  getSaleDetails
 } from '../controllers/auctionController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { validateRequest, schemas } from '../middlewares/validateRequest.js';
@@ -24,5 +28,9 @@ router.post('/reserve-coin', validateRequest(schemas.reserveCoin), reserveCoin);
 router.post('/submit-bid', paymentUpload.single('paymentProof'), submitBidWithProof);
 router.patch('/cancel-reservation/:reservationId', cancelReservation);
 router.get('/my-bids', getMyBids);
+router.get('/my-sales', getMySales);
+router.get('/pending-sales', getPendingSales);
+router.get('/sales-summary', getSalesSummary);
+router.get('/sales/:transactionId', getSaleDetails);
 
 export default router;
