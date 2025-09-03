@@ -11,7 +11,8 @@ const getAuctionStatus = async (req, res, next) => {
       .populate('coins');
 
     if (!currentAuction || !currentAuction.isCurrentlyActive()) {
-      return next(new AppError('No active auction at the moment', 400));
+      const nextAuctionTime = AuctionSession.getNextAuctionTime();
+      return next(new AppError({message: 'No active auction at the moment', nextAuctionTime}, 400));
     }
 
     const nextAuctionTime = AuctionSession.getNextAuctionTime();

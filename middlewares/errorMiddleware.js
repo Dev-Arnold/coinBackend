@@ -29,22 +29,26 @@ const handleJWTExpiredError = () =>
 
 // Send error response in development
 const sendErrorDev = (err, res) => {
-  res.status(err.statusCode).json({
+  const response = {
     status: err.status,
     error: err,
     message: err.message,
     stack: err.stack
-  });
+  };
+  if (err.data) response.data = err.data;
+  res.status(err.statusCode).json(response);
 };
 
 // Send error response in production
 const sendErrorProd = (err, res) => {
   // Operational, trusted error: send message to client
   if (err.isOperational) {
-    res.status(err.statusCode).json({
+    const response = {
       status: err.status,
       message: err.message
-    });
+    };
+    if (err.data) response.data = err.data;
+    res.status(err.statusCode).json(response);
   } else {
     // Programming or other unknown error: don't leak error details
     console.error('ERROR 💥', err);
