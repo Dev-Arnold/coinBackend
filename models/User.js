@@ -129,33 +129,24 @@ userSchema.methods.reduceCreditScore = function(points = 10) {
   return this.save();
 };
 
-// Calculate total portfolio value including coins
+// Calculate total portfolio value (same as balance since it includes everything)
 userSchema.methods.calculateTotalBalance = async function() {
-  const UserCoin = mongoose.model('UserCoin');
-  const userCoins = await UserCoin.find({ owner: this._id, status: { $ne: 'sold' } });
-  
-  let totalCoinValue = 0;
-  for (const coin of userCoins) {
-    const currentValue = await coin.calculateCurrentValue();
-    totalCoinValue += currentValue;
-  }
-  
-  return this.balance + totalCoinValue;
+  return this.balance;
 };
 
-// Update balance to reflect total value (referrals + coin profits)
+// Update balance to reflect total coin values + referral earnings
 userSchema.methods.updateBalance = async function() {
   const UserCoin = mongoose.model('UserCoin');
   const userCoins = await UserCoin.find({ owner: this._id, status: { $ne: 'sold' } });
   
   let totalCoinValue = 0;
   for (const coin of userCoins) {
-    const profitInfo = await coin.getProfitInfo();
-    totalCoinValue += profitInfo.profit; // Only add the profit, not the full value
+    const currentValue = coin.calculateCurrentValue();
+    totalCoinValue += currentValue;
   }
   
-  // Balance = referral earnings + coin profits
-  this.balance = this.referralEarnings + totalCoinValue;
+  // Balance = total current value of all coins + referral earnings
+  this.balance = totalCoinValue + this.referralEarnings;
   await this.save();
   
   return this.balance;

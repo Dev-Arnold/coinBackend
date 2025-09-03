@@ -55,6 +55,12 @@ const userCoinSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  reservedBy: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'User'
+  },
+  reservedAt: Date,
+  reservationExpires: Date,
   isBonusCoin: {
     type: Boolean,
     default: false

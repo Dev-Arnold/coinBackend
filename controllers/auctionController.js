@@ -43,8 +43,8 @@ const getAuctionCoins = async (req, res, next) => {
       isInAuction: true,
       isApproved: true
     })
-    .populate('seller', 'name')
-    .select('_id currentPrice category plan profitPercentage seller status');
+    .populate('owner', 'firstName lastName')
+    .select('_id currentPrice category plan profitPercentage owner status');
 
     // Group by category
     const coinsByCategory = {};
@@ -58,7 +58,7 @@ const getAuctionCoins = async (req, res, next) => {
         price: userCoin.currentPrice,
         plan: userCoin.plan,
         profitPercentage: userCoin.profitPercentage,
-        seller: userCoin.seller,
+        owner: userCoin.owner,
         status: userCoin.status
       });
       coinsByCategory[userCoin.category].count++;
@@ -92,7 +92,7 @@ const reserveCoin = async (req, res, next) => {
     }
 
     // Find the user coin
-    const userCoin = await UserCoin.findById(coinId).populate('owner', 'firstName lastName bankDetails');
+    const userCoin = await UserCoin.findById(coinId).populate('owner', 'firstName lastName bankDetails phone');
     if (!userCoin || !userCoin.isInAuction || !userCoin.isApproved) {
       return next(new AppError('Coin is not available', 400));
     }
@@ -107,22 +107,36 @@ const reserveCoin = async (req, res, next) => {
       return next(new AppError('Your account is blocked', 403));
     }
 
-    // Temporarily remove from auction
+    // Check if user already has an active reservation
+    const existingReservation = await UserCoin.findOne({
+      reservedBy: userId,
+      reservationExpires: { $gt: new Date() }
+    });
+    if (existingReservation) {
+      return next(new AppError('You already have an active reservation', 400));
+    }
+
+    // Reserve coin
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
     userCoin.isInAuction = false;
+    userCoin.reservedBy = userId;
+    userCoin.reservedAt = new Date();
+    userCoin.reservationExpires = expiresAt;
     await userCoin.save();
 
     res.status(200).json({
       status: 'success',
-      message: 'Coin reserved successfully. Complete payment within 15 minutes.',
+      message: 'Coin reserved successfully. Complete payment within 15 minutes or face 20 credit score penalty.',
       data: {
         coinId,
         plan,
         amount: userCoin.currentPrice,
         seller: {
           name: `${userCoin.owner.firstName} ${userCoin.owner.lastName}`,
-          bankDetails: userCoin.owner.bankDetails
+          bankDetails: userCoin.owner.bankDetails,
+          phone: userCoin.owner.phone
         },
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+        expiresAt
       }
     });
   } catch (error) {
@@ -134,7 +148,6 @@ const reserveCoin = async (req, res, next) => {
 const submitBidWithProof = async (req, res, next) => {
   try {
     const { coinId, plan, paymentMethod } = req.body;
-    console.log(req.body)
     const userId = req.user.id;
 
     // Check if file was uploaded
@@ -142,10 +155,15 @@ const submitBidWithProof = async (req, res, next) => {
       return next(new AppError('Please upload payment proof', 400));
     }
 
-    // Get coin details
-    const userCoin = await UserCoin.findById(coinId);
+    // Find reserved coin
+    const userCoin = await UserCoin.findOne({
+      _id: coinId,
+      reservedBy: userId,
+      reservationExpires: { $gt: new Date() }
+    });
+    
     if (!userCoin) {
-      return next(new AppError('User coin not found', 404));
+      return next(new AppError('Coin reservation not found or expired', 404));
     }
 
     // Create transaction
@@ -161,9 +179,15 @@ const submitBidWithProof = async (req, res, next) => {
       paymentDeadline: new Date(Date.now() + 24 * 60 * 60 * 1000)
     });
 
+    // Clear reservation
+    userCoin.reservedBy = undefined;
+    userCoin.reservedAt = undefined;
+    userCoin.reservationExpires = undefined;
+    await userCoin.save();
+
     res.status(201).json({
       status: 'success',
-      message: 'Bid submitted successfully. Waiting for seller to release coin.',
+      message: 'Payment proof submitted successfully. Waiting for seller to release coin.',
       data: {
         transaction
       }
@@ -176,16 +200,25 @@ const submitBidWithProof = async (req, res, next) => {
 // Cancel reservation (returns coin to auction)
 const cancelReservation = async (req, res, next) => {
   try {
-    const { reservationId } = req.params;
-    const { coinId } = req.body;
+    const { coinId } = req.params;
     const userId = req.user.id;
 
-    // Return coin to auction
-    const userCoin = await UserCoin.findById(coinId);
-    if (userCoin) {
-      userCoin.isInAuction = true;
-      await userCoin.save();
+    // Find reserved coin
+    const userCoin = await UserCoin.findOne({
+      _id: coinId,
+      reservedBy: userId
+    });
+
+    if (!userCoin) {
+      return next(new AppError('Reservation not found', 404));
     }
+
+    // Return coin to auction and clear reservation
+    userCoin.isInAuction = true;
+    userCoin.reservedBy = undefined;
+    userCoin.reservedAt = undefined;
+    userCoin.reservationExpires = undefined;
+    await userCoin.save();
 
     // Reduce user's credit score for cancellation
     const user = await User.findById(userId);
@@ -193,10 +226,32 @@ const cancelReservation = async (req, res, next) => {
 
     res.status(200).json({
       status: 'success',
-      message: 'Reservation cancelled. Coin returned to auction.',
+      message: 'Reservation cancelled. Coin returned to auction. 5 credit score points deducted.',
       data: {
         newCreditScore: user.creditScore
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get user's active reservations
+const getMyReservations = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    const reservations = await UserCoin.find({ 
+      reservedBy: userId,
+      reservationExpires: { $gt: new Date() }
+    })
+    .select('_id category currentPrice reservedAt reservationExpires')
+    .sort('-reservedAt');
+
+    res.status(200).json({
+      status: 'success',
+      results: reservations.length,
+      data: { reservations }
     });
   } catch (error) {
     next(error);
@@ -359,7 +414,8 @@ export {
   getAuctionCoins, 
   reserveCoin,
   submitBidWithProof, 
-  cancelReservation, 
+  cancelReservation,
+  getMyReservations,
   getMyBids,
   getMySales,
   getPendingSales,

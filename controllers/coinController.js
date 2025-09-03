@@ -335,10 +335,7 @@ const releaseCoinToBuyer = async (req, res, next) => {
     const buyer = await User.findById(transaction.buyer._id);
     await buyer.updateBalance();
 
-    // Update seller's balance (add sale proceeds)
-    const seller = await User.findById(originalUserCoin.owner);
-    seller.balance += transaction.amount;
-    await seller.updateBalance();
+    // No balance update needed - seller receives payment outside platform
 
     // Update transaction status
     transaction.status = 'confirmed';
@@ -360,7 +357,7 @@ const releaseCoinToBuyer = async (req, res, next) => {
     next(error);
   }
 };
-
+// 1427100
 // List user coin for auction (only for matured coins)
 const listUserCoinForAuction = async (req, res, next) => {
   try {

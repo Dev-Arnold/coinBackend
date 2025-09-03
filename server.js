@@ -24,6 +24,7 @@ import Coin from './models/Coin.js';
 import UserCoin from './models/UserCoin.js';
 import User from './models/User.js';
 import { releaseCoinsToAuction } from './services/auctionService.js';
+import startReservationCleanup from './utils/reservationCleanup.js';
 
 // Load environment variables
 dotenv.config();
@@ -63,16 +64,16 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
 // Serve static files
-app.use('/uploads', express.static('uploads'));
+// app.use('/uploads', express.static('uploads'));
 
 // Create uploads directories if they don't exist
-import { mkdir } from 'fs/promises';
-try {
-  await mkdir('uploads/payment-proofs', { recursive: true });
-  await mkdir('uploads/kyc-documents', { recursive: true });
-} catch (error) {
-  console.log('Uploads directories already exist');
-}
+// import { mkdir } from 'fs/promises';
+// try {
+//   await mkdir('uploads/payment-proofs', { recursive: true });
+//   await mkdir('uploads/kyc-documents', { recursive: true });
+// } catch (error) {
+//   console.log('Uploads directories already exist');
+// }
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -104,6 +105,7 @@ const createAuctionSession = async (startTime, endTime) => {
     // Wait for database to be ready
     await new Promise(resolve => setTimeout(resolve, 2000));
     
+    const releaseResult = await releaseCoinsToAuction();
     
     if (!releaseResult.success) {
       console.log('No coins released for auction:', releaseResult.message);
@@ -202,6 +204,10 @@ startServer().then(() => {
   app.listen(port, async () => {
     console.log(`🚀 Server running on port ${port}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV}`);
+    
+    // Start reservation cleanup service
+    startReservationCleanup();
+    console.log('🧹 Reservation cleanup service started');
     
     // Wait a bit then create admin user
     setTimeout(async () => {

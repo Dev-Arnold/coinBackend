@@ -69,6 +69,13 @@ const schemas = {
   reserveCoin: Joi.object({
     coinId: Joi.string().required(),
     plan: Joi.string().valid('5days', '10days', '30days').required()
+  }),
+
+  // Submit bid with proof validation
+  submitBidWithProof: Joi.object({
+    coinId: Joi.string().required(),
+    plan: Joi.string().valid('5days', '10days', '30days').required(),
+    paymentMethod: Joi.string().valid('bank_transfer', 'cryptocurrency').required()
   })
 };
 
