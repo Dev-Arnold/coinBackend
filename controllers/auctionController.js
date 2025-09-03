@@ -259,6 +259,37 @@ const getMyReservations = async (req, res, next) => {
   }
 };
 
+// Get user's auction purchase history
+const getMyAuctionHistory = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    const transactions = await Transaction.find({ buyer: userId })
+      .populate('seller', 'firstName lastName')
+      .select('amount plan paymentMethod status createdAt completedAt')
+      .sort('-createdAt');
+
+    const history = transactions.map(t => ({
+      _id: t._id,
+      amount: t.amount,
+      plan: t.plan,
+      paymentMethod: t.paymentMethod,
+      status: t.status,
+      seller: t.seller ? `${t.seller.firstName} ${t.seller.lastName}` : 'Unknown',
+      purchaseDate: t.createdAt,
+      completedDate: t.completedAt
+    }));
+
+    res.status(200).json({
+      status: 'success',
+      results: history.length,
+      data: { history }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Get user's active bids
 const getMyBids = async (req, res, next) => {
   try {
@@ -417,6 +448,7 @@ export {
   submitBidWithProof, 
   cancelReservation,
   getMyReservations,
+  getMyAuctionHistory,
   getMyBids,
   getMySales,
   getPendingSales,

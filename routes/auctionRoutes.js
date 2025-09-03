@@ -6,6 +6,7 @@ import {
   submitBidWithProof,
   cancelReservation,
   getMyReservations,
+  getMyAuctionHistory,
   getMyBids,
   getMySales,
   getPendingSales,
@@ -29,6 +30,7 @@ router.post('/reserve-coin', validateRequest(schemas.reserveCoin), reserveCoin);
 router.post('/submit-bid', paymentUpload.single('paymentProof'), validateRequest(schemas.submitBidWithProof), submitBidWithProof);
 router.patch('/cancel-reservation/:coinId', cancelReservation);
 router.get('/my-reservations', getMyReservations);
+router.get('/my-auction-history', getMyAuctionHistory);
 router.get('/my-bids', getMyBids);
 router.get('/my-sales', getMySales);
 router.get('/pending-sales', getPendingSales);
