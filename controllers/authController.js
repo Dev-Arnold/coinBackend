@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import AppError from '../utils/AppError.js';
 import { createSendToken } from '../utils/generateToken.js';
+import { sendWhatsAppOTP, verifyWhatsAppOTP } from '../utils/termiiService.js';
 
 // Register new user with optional referral
 const register = async (req, res, next) => {
@@ -228,4 +229,72 @@ const requestReferralBonus = async (req, res, next) => {
   }
 };
 
-export { register, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus, getDashboard };
+// Send WhatsApp OTP
+const sendOTP = async (req, res, next) => {
+  try {
+    const { phone } = req.body;
+    
+    if (!phone) {
+      return next(new AppError('Phone number is required', 400));
+    }
+
+    const result = await sendWhatsAppOTP(phone);
+    
+    if (!result.success) {
+      return next(new AppError('Failed to send OTP', 500));
+    }
+
+    // Store pinId for verification
+    const user = await User.findOne({ phone });
+    if (user) {
+      user.otpPinId = result.data.pinId;
+      await user.save();
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'OTP sent to WhatsApp',
+      data: {
+        pinId: result.data.pinId
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Verify WhatsApp OTP
+const verifyOTP = async (req, res, next) => {
+  try {
+    const { phone, pin } = req.body;
+    
+    if (!phone || !pin) {
+      return next(new AppError('Phone number and PIN are required', 400));
+    }
+
+    const user = await User.findOne({ phone });
+    if (!user || !user.otpPinId) {
+      return next(new AppError('Invalid phone number or no OTP sent', 400));
+    }
+
+    const result = await verifyWhatsAppOTP(user.otpPinId, pin);
+    
+    if (!result.success || !result.verified) {
+      return next(new AppError('Invalid OTP', 400));
+    }
+
+    // Mark phone as verified
+    user.isPhoneVerified = true;
+    user.otpPinId = undefined;
+    await user.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Phone number verified successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export { register, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus, getDashboard, sendOTP, verifyOTP };

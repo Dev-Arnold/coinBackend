@@ -22,6 +22,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please provide your phone number']
   },
+  isPhoneVerified: {
+    type: Boolean,
+    default: false
+  },
+  otpPinId: String,
   password: {
     type: String,
     required: [true, 'Please provide a password'],

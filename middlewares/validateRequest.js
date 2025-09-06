@@ -76,6 +76,17 @@ const schemas = {
     coinId: Joi.string().required(),
     plan: Joi.string().valid('5days', '10days', '30days').required(),
     paymentMethod: Joi.string().valid('bank_transfer', 'cryptocurrency').required()
+  }),
+
+  // Send OTP validation
+  sendOTP: Joi.object({
+    phone: Joi.string().required()
+  }),
+
+  // Verify OTP validation
+  verifyOTP: Joi.object({
+    phone: Joi.string().required(),
+    pin: Joi.string().length(6).required()
   })
 };
 
