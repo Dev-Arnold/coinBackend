@@ -17,14 +17,20 @@ const validateRequest = (schema) => {
 
 // Common validation schemas
 const schemas = {
-  // User registration validation
-  register: Joi.object({
+  // User signup validation
+  signup: Joi.object({
     firstName: Joi.string().min(2).max(50).required(),
     lastName: Joi.string().min(2).max(50).required(),
-    email: Joi.string().email().required(),
+    email: Joi.string().min(2).max(50).required(),
     phone: Joi.string().min(10).max(15).required(),
     password: Joi.string().min(6).required(),
-    referralCode: Joi.string().optional()
+    referralCode:Joi.string().min(6).optional(),
+  }),
+
+  // Verify OTP validation
+  verifyOtp: Joi.object({
+    phone: Joi.string().min(10).max(15).required(),
+    otp: Joi.string().length(6).required()
   }),
 
   // User login validation

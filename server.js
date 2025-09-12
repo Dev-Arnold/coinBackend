@@ -1,10 +1,11 @@
 import express from 'express';
-import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import cron from 'node-cron';
+import dotenv from 'dotenv';
+dotenv.config();
 
 // Import configurations and middleware
 import connectDB from './config/db.js';
@@ -17,6 +18,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import auctionRoutes from './routes/auctionRoutes.js';
 import coinRoutes from './routes/coinRoutes.js';
 import kycRoutes from './routes/kycRoutes.js';
+import messageRoutes from "./routes/messageRoutes.js";
 
 // Import models for auction scheduling
 import AuctionSession from './models/AuctionSession.js';
@@ -25,9 +27,6 @@ import UserCoin from './models/UserCoin.js';
 import User from './models/User.js';
 import { releaseCoinsToAuction } from './services/auctionService.js';
 import startReservationCleanup from './utils/reservationCleanup.js';
-
-// Load environment variables
-dotenv.config();
 
 // Create Express app
 const app = express();
@@ -81,6 +80,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/auction', auctionRoutes);
 app.use('/api/coins', coinRoutes);
 app.use('/api/kyc', kycRoutes);
+app.use("/api/messages", messageRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

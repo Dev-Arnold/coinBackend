@@ -1,39 +1,112 @@
 import User from '../models/User.js';
 import AppError from '../utils/AppError.js';
 import { createSendToken } from '../utils/generateToken.js';
-import { sendWhatsAppOTP, verifyWhatsAppOTP } from '../utils/termiiService.js';
+import { sendWhatsAppOTP } from '../utils/termii.js';
+import { generateOTP, hashOTP, verifyOTP, normalizePhoneNumber } from '../utils/otp.js';
 
-// Register new user with optional referral
-const register = async (req, res, next) => {
+// Signup new user and send OTP
+const signup = async (req, res, next) => {
   try {
     const { firstName, lastName, email, phone, password, referralCode } = req.body;
 
+    // Normalize phone number
+    const normalizedPhone = normalizePhoneNumber(phone);
+
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ 
+      $or: [{ phone: normalizedPhone }, { email }]
+    });
     if (existingUser) {
-      return next(new AppError('User with this email already exists', 400));
+      return next(new AppError('User with this phone number or email already exists', 400));
     }
 
-    // Create user data
-    const userData = { firstName, lastName, email, phone, password };
-
-    // Handle referral if provided
+    // Handle referral code if provided
+    let referrer = null;
     if (referralCode) {
-      const referrer = await User.findOne({ referralCode });
-      if (referrer) {
-        userData.referredBy = referrer._id;
-        // Give referral bonus to referrer
-        referrer.referralEarnings += parseInt(process.env.REFERRAL_BONUS);
-        await referrer.updateBalance();
-        await referrer.save();
+      referrer = await User.findOne({ referralCode });
+      if (!referrer) {
+        return next(new AppError('Invalid referral code', 400));
       }
     }
 
-    // Create new user
-    const newUser = await User.create(userData);
+    // Generate OTP
+    const otp = generateOTP();
+    const hashedOTP = await hashOTP(otp);
+    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-    // Send token
-    createSendToken(newUser, 201, res);
+    // Create new user
+    const newUser = await User.create({
+      firstName,
+      lastName,
+      email,
+      phone: normalizedPhone,
+      password,
+      referredBy: referrer?._id,
+      otpHash: hashedOTP,
+      otpExpiry
+    });
+
+    // Add referral bonus to referrer
+    if (referrer) {
+      referrer.referralEarnings += process.env.REFERRAL_BONUS || 2000;
+      await referrer.save();
+    }
+
+    // Send OTP via WhatsApp
+    const otpResult = await sendWhatsAppOTP(normalizedPhone, otp);
+    if (!otpResult.success) {
+      await User.findByIdAndDelete(newUser._id);
+      return next(new AppError('Failed to send OTP. Please try again.', 500));
+    }
+
+
+
+    res.status(201).json({
+      status: 'success',
+      message: 'User created successfully. OTP sent to WhatsApp.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Verify OTP and activate user
+const verifyOtp = async (req, res, next) => {
+  try {
+    const { phone, otp } = req.body;
+
+    // Normalize phone number
+    const normalizedPhone = normalizePhoneNumber(phone);
+
+    // Find user
+    const user = await User.findOne({ phone: normalizedPhone }).select('+password');
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+
+    // Check if OTP exists and not expired
+    if (!user.otpHash || !user.otpExpiry) {
+      return next(new AppError('No OTP found. Please request a new one.', 400));
+    }
+
+    if (user.otpExpiry < new Date()) {
+      return next(new AppError('OTP has expired. Please request a new one.', 400));
+    }
+
+    // Verify OTP
+    const isValidOTP = await verifyOTP(otp, user.otpHash);
+    if (!isValidOTP) {
+      return next(new AppError('Invalid OTP', 400));
+    }
+
+    // Mark user as verified and clear OTP fields
+    user.isVerified = true;
+    user.otpHash = undefined;
+    user.otpExpiry = undefined;
+    await user.save();
+
+    // Send JWT token
+    createSendToken(user, 200, res);
   } catch (error) {
     next(error);
   }
@@ -44,16 +117,16 @@ const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    // Check if email and password exist
-    if (!email || !password) {
-      return next(new AppError('Please provide email and password!', 400));
-    }
-
     // Check if user exists and password is correct
     const user = await User.findOne({ email }).select('+password');
 
     if (!user || !(await user.correctPassword(password, user.password))) {
       return next(new AppError('Incorrect email or password', 401));
+    }
+
+    // Check if user is verified
+    if (!user.isVerified) {
+      return next(new AppError('Please verify your phone number first', 401));
     }
 
     // Check if user is blocked
@@ -229,72 +302,6 @@ const requestReferralBonus = async (req, res, next) => {
   }
 };
 
-// Send WhatsApp OTP
-const sendOTP = async (req, res, next) => {
-  try {
-    const { phone } = req.body;
-    
-    if (!phone) {
-      return next(new AppError('Phone number is required', 400));
-    }
 
-    const result = await sendWhatsAppOTP(phone);
-    
-    if (!result.success) {
-      return next(new AppError('Failed to send OTP', 500));
-    }
 
-    // Store pinId for verification
-    const user = await User.findOne({ phone });
-    if (user) {
-      user.otpPinId = result.data.pinId;
-      await user.save();
-    }
-
-    res.status(200).json({
-      status: 'success',
-      message: 'OTP sent to WhatsApp',
-      data: {
-        pinId: result.data.pinId
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Verify WhatsApp OTP
-const verifyOTP = async (req, res, next) => {
-  try {
-    const { phone, pin } = req.body;
-    
-    if (!phone || !pin) {
-      return next(new AppError('Phone number and PIN are required', 400));
-    }
-
-    const user = await User.findOne({ phone });
-    if (!user || !user.otpPinId) {
-      return next(new AppError('Invalid phone number or no OTP sent', 400));
-    }
-
-    const result = await verifyWhatsAppOTP(user.otpPinId, pin);
-    
-    if (!result.success || !result.verified) {
-      return next(new AppError('Invalid OTP', 400));
-    }
-
-    // Mark phone as verified
-    user.isPhoneVerified = true;
-    user.otpPinId = undefined;
-    await user.save();
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Phone number verified successfully'
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export { register, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus, getDashboard, sendOTP, verifyOTP };
+export { signup, verifyOtp, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus, getDashboard };
