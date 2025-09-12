@@ -322,12 +322,12 @@ const releaseCoinToBuyer = async (req, res, next) => {
     // Create UserCoin for the buyer
     const newUserCoin = await UserCoin.create({
       category: originalUserCoin.category,
-      plan: originalUserCoin.plan,
-      profitPercentage: originalUserCoin.profitPercentage,
+      plan: transaction.plan,
+      profitPercentage: transaction.profitPercentage,
       owner: transaction.buyer._id,
       currentPrice: transaction.amount,
       boughtFrom: originalUserCoin.owner,
-      isApproved: true,
+      isApproved: false,
       status: 'locked'
     });
 

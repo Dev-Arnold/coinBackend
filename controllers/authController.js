@@ -125,9 +125,9 @@ const login = async (req, res, next) => {
     }
 
     // Check if user is verified
-    if (!user.isVerified) {
-      return next(new AppError('Please verify your phone number first', 401));
-    }
+    // if (!user.isVerified) {
+    //   return next(new AppError('Please verify your phone number first', 401));
+    // }
 
     // Check if user is blocked
     if (user.isBlocked) {

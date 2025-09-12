@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import AuctionSession from '../models/AuctionSession.js';
 import UserCoin from '../models/UserCoin.js';
 import Transaction from '../models/Transaction.js';
@@ -7,22 +8,32 @@ import AppError from '../utils/AppError.js';
 // Get current auction status and next auction time
 const getAuctionStatus = async (req, res, next) => {
   try {
-    const currentAuction = await AuctionSession.findOne({ isActive: true })
-      .populate('coins');
+    const currentAuction = await AuctionSession.findOne({ isActive: true });
 
     if (!currentAuction || !currentAuction.isCurrentlyActive()) {
       const nextAuctionTime = AuctionSession.getNextAuctionTime();
       return next(new AppError({message: 'No active auction at the moment', nextAuctionTime}, 400));
     }
 
+    // Get actual coins in auction
+    const coinsInAuction = await UserCoin.find({
+      isInAuction: true,
+      isApproved: true
+    })
+    .populate('owner', 'firstName lastName')
+    .select('_id category currentPrice plan profitPercentage owner');
+
     const nextAuctionTime = AuctionSession.getNextAuctionTime();
 
     res.status(200).json({
       status: 'success',
       data: {
-        currentAuction,
+        currentAuction: {
+          ...currentAuction.toObject(),
+          coins: coinsInAuction
+        },
         nextAuctionTime,
-        isActive: currentAuction ? currentAuction.isCurrentlyActive() : false
+        isActive: currentAuction.isCurrentlyActive()
       }
     });
   } catch (error) {
@@ -108,6 +119,30 @@ const reserveCoin = async (req, res, next) => {
       return next(new AppError('Your account is blocked', 403));
     }
 
+    // Check spending limit for current auction session
+    const userSpentInAuction = await Transaction.aggregate([
+      {
+        $match: {
+          buyer: new mongoose.Types.ObjectId(userId),
+          auctionSession: currentAuction._id,
+          status: { $in: ['payment_uploaded', 'confirmed'] }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalSpent: { $sum: '$amount' }
+        }
+      }
+    ]);
+
+    const totalSpent = userSpentInAuction[0]?.totalSpent || 0;
+    const spendingLimit = 1500000; // 1.5 million
+    
+    if (totalSpent + userCoin.currentPrice > spendingLimit) {
+      return next(new AppError(`Spending limit exceeded. You can only spend ₦${spendingLimit.toLocaleString()} per auction session. Current spent: ₦${totalSpent.toLocaleString()}`, 400));
+    }
+
     // Check if user already has an active reservation
     const existingReservation = await UserCoin.findOne({
       reservedBy: userId,
@@ -167,6 +202,9 @@ const submitBidWithProof = async (req, res, next) => {
       return next(new AppError('Coin reservation not found or expired', 404));
     }
 
+    // Get current auction session
+    const currentAuction = await AuctionSession.findOne({ isActive: true });
+    
     // Create transaction
     const transaction = await Transaction.create({
       buyer: userId,
@@ -177,7 +215,8 @@ const submitBidWithProof = async (req, res, next) => {
       paymentMethod,
       paymentProof: req.file.path,
       status: 'payment_uploaded',
-      paymentDeadline: new Date(Date.now() + 24 * 60 * 60 * 1000)
+      paymentDeadline: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      auctionSession: currentAuction?._id
     });
 
     // Clear reservation
@@ -284,6 +323,63 @@ const getMyAuctionHistory = async (req, res, next) => {
       status: 'success',
       results: history.length,
       data: { history }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get user's spending in current auction session
+const getMyAuctionSpending = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get current auction
+    const currentAuction = await AuctionSession.findOne({ isActive: true });
+    if (!currentAuction) {
+      return res.status(200).json({
+        status: 'success',
+        data: {
+          totalSpent: 0,
+          spendingLimit: 1500000,
+          remainingLimit: 1500000,
+          transactionCount: 0
+        }
+      });
+    }
+
+    // Calculate total spending in current auction
+    const spendingData = await Transaction.aggregate([
+      {
+        $match: {
+          buyer: new mongoose.Types.ObjectId(userId),
+          auctionSession: currentAuction._id,
+          status: { $in: ['payment_uploaded', 'confirmed'] }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalSpent: { $sum: '$amount' },
+          transactionCount: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const totalSpent = spendingData[0]?.totalSpent || 0;
+    const transactionCount = spendingData[0]?.transactionCount || 0;
+    const spendingLimit = 1500000;
+    const remainingLimit = Math.max(0, spendingLimit - totalSpent);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        totalSpent,
+        spendingLimit,
+        remainingLimit,
+        transactionCount,
+        isLimitReached: remainingLimit === 0
+      }
     });
   } catch (error) {
     next(error);
@@ -449,6 +545,7 @@ export {
   cancelReservation,
   getMyReservations,
   getMyAuctionHistory,
+  getMyAuctionSpending,
   getMyBids,
   getMySales,
   getPendingSales,

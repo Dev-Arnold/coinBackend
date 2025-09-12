@@ -86,7 +86,7 @@ userCoinSchema.pre('save', function(next) {
         this.profitPercentage = 107;
         break;
       case '30days':
-        this.profitPercentage = 215;
+        this.profitPercentage = 161;
         break;
     }
   }

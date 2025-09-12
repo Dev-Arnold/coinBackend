@@ -79,7 +79,7 @@ const assignCoinToUser = async (req, res, next) => {
         profitPercentage = 107;
         break;
       case '30days':
-        profitPercentage = 215;
+        profitPercentage = 161;
         break;
       default:
         return next(new AppError('Invalid plan selected', 400));

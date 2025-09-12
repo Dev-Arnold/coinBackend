@@ -7,6 +7,7 @@ import {
   cancelReservation,
   getMyReservations,
   getMyAuctionHistory,
+  getMyAuctionSpending,
   getMyBids,
   getMySales,
   getPendingSales,
@@ -31,6 +32,7 @@ router.post('/submit-bid', paymentUpload.single('paymentProof'), validateRequest
 router.patch('/cancel-reservation/:coinId', cancelReservation);
 router.get('/my-reservations', getMyReservations);
 router.get('/my-auction-history', getMyAuctionHistory);
+router.get('/my-auction-spending', getMyAuctionSpending);
 router.get('/my-bids', getMyBids);
 router.get('/my-sales', getMySales);
 router.get('/pending-sales', getPendingSales);
