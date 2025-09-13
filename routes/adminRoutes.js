@@ -7,6 +7,9 @@ import {
   assignCoinToUser, 
   getPendingUserCoins, 
   approveUserCoin, 
+  deleteUserCoin,
+  autoApprovePendingCoins,
+  triggerAutoApprove,
   toggleUserBlock, 
   getStats,
   releaseCoinsForAuction,
@@ -48,6 +51,8 @@ router.get('/active-transactions', getActiveTransactions);
 router.post('/:userId/assign-coin', validateRequest(schemas.assignCoin), assignCoinToUser);
 router.get('/pending-user-coins', getPendingUserCoins);
 router.patch('/coins/:userCoinId/approve', approveUserCoin);
+router.delete('/coins/:userCoinId', deleteUserCoin);
+router.post('/auto-approve-coins', triggerAutoApprove);
 
 // Statistics route
 router.get('/stats', getStats);

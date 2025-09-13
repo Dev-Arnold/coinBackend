@@ -361,15 +361,25 @@ const getTimeRemaining = (deadline) => {
 // Get all user coins pending approval
 const getPendingUserCoins = async (req, res, next) => {
   try {
-    const pendingUserCoins = await UserCoin.find({ isApproved: false })
+    const pendingUserCoins = await UserCoin.find({ status: 'pending_approval' })
       .populate('owner', 'firstName lastName')
       .sort('-createdAt');
 
+    // Calculate current values for each user coin
+    const coinsWithValues = pendingUserCoins.map((userCoin) => {
+      const profitInfo = userCoin.getProfitInfo();
+      
+      return {
+        ...userCoin.toObject(),
+        ...profitInfo
+      };
+    });
+
     res.status(200).json({
       status: 'success',
-      results: pendingUserCoins.length,
+      results: coinsWithValues.length,
       data: {
-        userCoins: pendingUserCoins
+        userCoins: coinsWithValues
       }
     });
   } catch (error) {
@@ -563,6 +573,74 @@ const updateDailyProfits = async (req, res, next) => {
   }
 };
 
+// Auto-approve pending coins 5 minutes before next auction
+const autoApprovePendingCoins = async () => {
+  try {
+    const nextAuctionTime = AuctionSession.getNextAuctionTime();
+    const fiveMinutesBefore = new Date(nextAuctionTime.getTime() - 5 * 60 * 1000);
+    const now = new Date();
+    
+    // Check if we're within 5 minutes of next auction
+    if (now >= fiveMinutesBefore && now < nextAuctionTime) {
+      const pendingCoins = await UserCoin.find({ status: 'pending_approval' });
+      
+      for (const coin of pendingCoins) {
+        const currentValue = coin.calculateCurrentValue();
+        
+        // Auto-approve if current value is 2,000,000 or less
+        if (currentValue <= 2000000) {
+          coin.isApproved = true;
+          coin.isLocked = false;
+          coin.status = 'available';
+          await coin.save();
+        }
+      }
+      
+      return { success: true, message: 'Pending coins auto-approved' };
+    }
+    
+    return { success: false, message: 'Not within auto-approval window' };
+  } catch (error) {
+    console.error('Auto-approve error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Manual trigger for auto-approve (for testing)
+const triggerAutoApprove = async (req, res, next) => {
+  try {
+    const result = await autoApprovePendingCoins();
+    
+    res.status(200).json({
+      status: 'success',
+      message: result.message,
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Delete user coin
+const deleteUserCoin = async (req, res, next) => {
+  try {
+    const userCoin = await UserCoin.findById(req.params.userCoinId);
+    
+    if (!userCoin) {
+      return next(new AppError('User coin not found', 404));
+    }
+
+    await UserCoin.findByIdAndDelete(req.params.userCoinId);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'User coin deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export { 
   getAllUsers, 
   getUser, 
@@ -571,6 +649,9 @@ export {
   assignCoinToUser, 
   getPendingUserCoins, 
   approveUserCoin, 
+  deleteUserCoin,
+  autoApprovePendingCoins,
+  triggerAutoApprove,
   toggleUserBlock, 
   getStats,
   releaseCoinsForAuction,
