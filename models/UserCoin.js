@@ -10,7 +10,7 @@ const userCoinSchema = new mongoose.Schema({
   plan: {
     type: String,
     required: [true, 'UserCoin must have a plan'],
-    enum: ['5days', '10days', '30days']
+    enum: ['3mins','5days', '10days', '30days']
   },
   profitPercentage: {
     type: Number,
@@ -77,8 +77,11 @@ const userCoinSchema = new mongoose.Schema({
 
 // Set profit percentage based on plan
 userCoinSchema.pre('save', function(next) {
-  if (this.isModified('plan')) {
+  if (this.isNew || this.isModified('plan')) {
     switch(this.plan) {
+      case '3mins':
+        this.profitPercentage = 35;
+        break;
       case '5days':
         this.profitPercentage = 35;
         break;
@@ -111,24 +114,40 @@ userCoinSchema.pre('save', function(next) {
 userCoinSchema.methods.calculateCurrentValue = function() {
   if (!this.purchaseDate) return this.currentPrice;
   
-  const daysHeld = Math.floor((Date.now() - this.purchaseDate) / (1000 * 60 * 60 * 24));
-  const planDays = parseInt(this.plan.replace('days', ''));
-  const dailyGrowth = this.profitPercentage / planDays / 100;
+  let timeHeld, planDuration, growth;
   
-  return Math.floor(this.currentPrice * (1 + (dailyGrowth * daysHeld)));
+  if (this.plan === '3mins') {
+    timeHeld = Math.floor((Date.now() - this.purchaseDate) / (1000 * 60)); // minutes
+    planDuration = 3;
+    // Cap at plan duration
+    timeHeld = Math.min(timeHeld, planDuration);
+    growth = this.profitPercentage / planDuration / 100;
+    return Math.floor(this.currentPrice * (1 + (growth * timeHeld)));
+  } else {
+    timeHeld = Math.floor((Date.now() - this.purchaseDate) / (1000 * 60 * 60 * 24)); // days
+    planDuration = parseInt(this.plan.replace('days', ''));
+    // Cap at plan duration
+    timeHeld = Math.min(timeHeld, planDuration);
+    const dailyGrowth = this.profitPercentage / planDuration / 100;
+    return Math.floor(this.currentPrice * (1 + (dailyGrowth * timeHeld)));
+  }
 };
 
-// Check if coin has matured (completed its plan days)
+// Check if coin has matured (completed its plan duration)
 userCoinSchema.methods.hasMatured = function() {
   // Bonus coins are instantly matured
   if (this.isBonusCoin) return true;
   
   if (!this.purchaseDate) return false;
   
-  const daysHeld = Math.floor((Date.now() - this.purchaseDate) / (1000 * 60 * 60 * 24));
-  const planDays = parseInt(this.plan.replace('days', ''));
-  
-  return daysHeld >= planDays;
+  if (this.plan === '3mins') {
+    const minutesHeld = Math.floor((Date.now() - this.purchaseDate) / (1000 * 60));
+    return minutesHeld >= 3;
+  } else {
+    const daysHeld = Math.floor((Date.now() - this.purchaseDate) / (1000 * 60 * 60 * 24));
+    const planDays = parseInt(this.plan.replace('days', ''));
+    return daysHeld >= planDays;
+  }
 };
 
 // Get profit information

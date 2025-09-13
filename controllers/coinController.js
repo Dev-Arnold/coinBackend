@@ -161,63 +161,6 @@ const uploadPaymentProof = async (req, res, next) => {
   }
 };
 
-// Make recommitment bid to unlock user coin for resale
-const makeRecommitmentBid = async (req, res, next) => {
-  try {
-    const { userCoinId } = req.params;
-    const userId = req.user.id;
-
-    const userCoin = await UserCoin.findById(userCoinId);
-    if (!userCoin || userCoin.owner.toString() !== userId) {
-      return next(new AppError('User coin not found or not owned by you', 404));
-    }
-
-    if (!userCoin.isLocked) {
-      return next(new AppError('User coin is not locked', 400));
-    }
-
-    const currentValue = userCoin.calculateCurrentValue();
-
-    // Create recommitment transaction (100% of current value)
-    const transaction = await Transaction.create({
-      buyer: userId,
-      userCoin: userCoinId,
-      amount: currentValue,
-      plan: userCoin.plan,
-      paymentMethod: 'balance', // Use account balance
-      status: 'confirmed',
-      completedAt: new Date()
-    });
-
-    // Update user balance
-    const user = await User.findById(userId);
-    if (user.balance < currentValue) {
-      return next(new AppError('Insufficient balance for recommitment', 400));
-    }
-
-    user.balance -= currentValue;
-    await user.save();
-
-    // Unlock user coin
-    userCoin.isLocked = false;
-    userCoin.lockExpiresAt = undefined;
-    userCoin.status = 'available';
-    await userCoin.save();
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Recommitment successful. Coin is now unlocked for resale.',
-      data: {
-        userCoin,
-        transaction,
-        newBalance: user.balance
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 // Submit matured user coin for admin approval
 const submitUserCoinForApproval = async (req, res, next) => {
   try {
@@ -229,10 +172,10 @@ const submitUserCoinForApproval = async (req, res, next) => {
       return next(new AppError('User coin not found or not owned by you', 404));
     }
 
-    // const isMatured = userCoin.hasMatured();
-    // if (!isMatured) {
-    //   return next(new AppError('Coin has not matured yet. Cannot submit for approval.', 400));
-    // }
+    const isMatured = userCoin.hasMatured();
+    if (!isMatured) {
+      return next(new AppError('Coin has not matured yet. Cannot submit for approval.', 400));
+    }
 
     if (userCoin.status === 'pending_approval') {
       return next(new AppError('Coin is already pending approval', 400));
@@ -428,7 +371,6 @@ export {
   getAvailableCoins,
   getUserCoin, 
   uploadPaymentProof, 
-  makeRecommitmentBid, 
   submitUserCoinForApproval,
   getSellerBankDetails,
   releaseCoinToBuyer,

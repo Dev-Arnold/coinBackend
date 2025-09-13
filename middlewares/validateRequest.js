@@ -53,7 +53,7 @@ const schemas = {
 
   // Assign coin to user validation
   assignCoin: Joi.object({
-    plan: Joi.string().valid('5days', '10days', '30days').required(),
+    plan: Joi.string().valid('3mins', '5days', '10days', '30days').required(),
     currentPrice: Joi.number().min(10000).max(1000000).required(),
     isBonusCoin: Joi.boolean().optional()
   }),
@@ -67,20 +67,20 @@ const schemas = {
   // Submit bid with proof validation
   submitBid: Joi.object({
     coinId: Joi.string().required(),
-    plan: Joi.string().valid('5days', '10days', '30days').required(),
+    plan: Joi.string().valid('3mins', '5days', '10days', '30days').required(),
     paymentMethod: Joi.string().valid('bank_transfer', 'cryptocurrency').required()
   }),
 
   // Reserve coin validation
   reserveCoin: Joi.object({
     coinId: Joi.string().required(),
-    plan: Joi.string().valid('5days', '10days', '30days').required()
+    plan: Joi.string().valid('3mins', '5days', '10days', '30days').required()
   }),
 
   // Submit bid with proof validation
   submitBidWithProof: Joi.object({
     coinId: Joi.string().required(),
-    plan: Joi.string().valid('5days', '10days', '30days').required(),
+    plan: Joi.string().valid('3mins', '5days', '10days', '30days').required(),
     paymentMethod: Joi.string().valid('bank_transfer', 'cryptocurrency').required()
   }),
 

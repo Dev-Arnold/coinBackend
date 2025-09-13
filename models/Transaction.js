@@ -20,7 +20,7 @@ const transactionSchema = new mongoose.Schema({
   },
   plan: {
     type: String,
-    enum: ['5days', '10days', '30days'],
+    enum: ['3mins', '5days', '10days', '30days'],
     required: true
   },
   paymentMethod: {

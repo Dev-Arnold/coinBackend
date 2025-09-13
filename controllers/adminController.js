@@ -72,6 +72,9 @@ const assignCoinToUser = async (req, res, next) => {
     // Set profit percentage based on plan
     let profitPercentage;
     switch(plan) {
+      case '3mins':
+        profitPercentage = 35;
+        break;
       case '5days':
         profitPercentage = 35;
         break;
@@ -106,7 +109,7 @@ const assignCoinToUser = async (req, res, next) => {
       currentPrice,
       category,
       profitPercentage,
-      isApproved: true,
+      isApproved: isBonusCoin,
       isBonusCoin,
       status: isBonusCoin ? 'available' : 'locked',
       isLocked: !isBonusCoin

@@ -4,7 +4,6 @@ import {
   getAvailableCoins,
   getUserCoin, 
   uploadPaymentProof, 
-  makeRecommitmentBid, 
   submitUserCoinForApproval,
   getSellerBankDetails,
   releaseCoinToBuyer,
@@ -26,7 +25,6 @@ router.get('/user-coin/:id', getUserCoin);
 router.get('/seller-bank-details/:coinId', getSellerBankDetails);
 // router.post('/payment-proof', paymentUpload.single('paymentProof'), uploadPaymentProof);
 router.post('/release-coin/:transactionId', releaseCoinToBuyer);
-router.post('/user-coin/:userCoinId/recommit', makeRecommitmentBid);
 router.post('/user-coin/:userCoinId/submit-for-approval', submitUserCoinForApproval);
 router.post('/user-coin/:userCoinId/list-auction', listUserCoinForAuction);
 

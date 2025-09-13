@@ -171,18 +171,27 @@ userSchema.methods.updateDailyProfits = async function() {
   const now = new Date();
   
   for (const coin of userCoins) {
-    const daysSinceLastUpdate = Math.floor((now - coin.lastProfitUpdate) / (1000 * 60 * 60 * 24));
+    let timeSinceLastUpdate, profitRate, profit;
     
-    if (daysSinceLastUpdate >= 1) {
-      const planDays = parseInt(coin.plan.replace('days', ''));
-      const dailyProfitRate = coin.profitPercentage / planDays / 100;
-      const dailyProfit = coin.currentPrice * dailyProfitRate * daysSinceLastUpdate;
-      
-      totalDailyProfit += dailyProfit;
-      
-      // Update last profit update date
-      coin.lastProfitUpdate = now;
-      await coin.save();
+    if (coin.plan === '3mins') {
+      const minutesSinceLastUpdate = Math.floor((now - coin.lastProfitUpdate) / (1000 * 60));
+      if (minutesSinceLastUpdate >= 1) {
+        const minuteProfitRate = coin.profitPercentage / 3 / 100;
+        profit = coin.currentPrice * minuteProfitRate * minutesSinceLastUpdate;
+        totalDailyProfit += profit;
+        coin.lastProfitUpdate = now;
+        await coin.save();
+      }
+    } else {
+      const daysSinceLastUpdate = Math.floor((now - coin.lastProfitUpdate) / (1000 * 60 * 60 * 24));
+      if (daysSinceLastUpdate >= 1) {
+        const planDays = parseInt(coin.plan.replace('days', ''));
+        const dailyProfitRate = coin.profitPercentage / planDays / 100;
+        profit = coin.currentPrice * dailyProfitRate * daysSinceLastUpdate;
+        totalDailyProfit += profit;
+        coin.lastProfitUpdate = now;
+        await coin.save();
+      }
     }
   }
   
