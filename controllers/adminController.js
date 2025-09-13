@@ -362,7 +362,7 @@ const getTimeRemaining = (deadline) => {
 const getPendingUserCoins = async (req, res, next) => {
   try {
     const pendingUserCoins = await UserCoin.find({ isApproved: false })
-      .populate('owner', 'name email')
+      .populate('owner', 'firstName lastName')
       .sort('-createdAt');
 
     res.status(200).json({
