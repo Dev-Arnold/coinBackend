@@ -8,16 +8,12 @@ import { generateOTP, hashOTP, verifyOTP, normalizePhoneNumber } from '../utils/
 const signup = async (req, res, next) => {
   try {
     const { firstName, lastName, email, phone, password, referralCode } = req.body;
-
-    // Normalize phone number
-    const normalizedPhone = normalizePhoneNumber(phone);
-
+    
     // Check if user already exists
-    const existingUser = await User.findOne({ 
-      $or: [{ phone: normalizedPhone }, { email }]
-    });
+    const existingUser = await User.findOne({ email });
+    
     if (existingUser) {
-      return next(new AppError('User with this phone number or email already exists', 400));
+      return next(new AppError('User with email already exists', 400));
     }
 
     // Handle referral code if provided
@@ -29,21 +25,14 @@ const signup = async (req, res, next) => {
       }
     }
 
-    // Generate OTP
-    const otp = generateOTP();
-    const hashedOTP = await hashOTP(otp);
-    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
     // Create new user
     const newUser = await User.create({
       firstName,
       lastName,
       email,
-      phone: normalizedPhone,
+      phone,
       password,
-      referredBy: referrer?._id,
-      otpHash: hashedOTP,
-      otpExpiry
+      referredBy: referrer?._id
     });
 
     // Add referral bonus to referrer
@@ -51,15 +40,6 @@ const signup = async (req, res, next) => {
       referrer.referralEarnings += process.env.REFERRAL_BONUS || 2000;
       await referrer.save();
     }
-
-    // Send OTP via WhatsApp
-    const otpResult = await sendWhatsAppOTP(normalizedPhone, otp);
-    if (!otpResult.success) {
-      await User.findByIdAndDelete(newUser._id);
-      return next(new AppError('Failed to send OTP. Please try again.', 500));
-    }
-
-
 
     res.status(201).json({
       status: 'success',
@@ -123,11 +103,6 @@ const login = async (req, res, next) => {
     if (!user || !(await user.correctPassword(password, user.password))) {
       return next(new AppError('Incorrect email or password', 401));
     }
-
-    // Check if user is verified
-    // if (!user.isVerified) {
-    //   return next(new AppError('Please verify your phone number first', 401));
-    // }
 
     // Check if user is blocked
     if (user.isBlocked) {
