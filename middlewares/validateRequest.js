@@ -25,6 +25,11 @@ const schemas = {
     phone: Joi.string().min(10).max(15).required(),
     password: Joi.string().min(6).required(),
     referralCode:Joi.string().min(6).optional(),
+    bankDetails: Joi.object({
+      accountName: Joi.string().required(),
+      accountNumber: Joi.string().required(),
+      bankName: Joi.string().required()
+    }).required()
   }),
 
   // Verify OTP validation

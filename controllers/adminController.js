@@ -523,8 +523,8 @@ const approveReferralBonus = async (req, res, next) => {
     // Create bonus coin with referral earnings as price
     const bonusCoin = await UserCoin.create({
       category: 'Category A',
-      plan: '10days',
-      profitPercentage: 107,
+      plan: '5days',
+      profitPercentage: 35,
       owner: userId,
       currentPrice: request.amount,
       isApproved: true,

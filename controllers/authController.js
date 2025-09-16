@@ -1,22 +1,18 @@
 import User from '../models/User.js';
 import AppError from '../utils/AppError.js';
 import { createSendToken } from '../utils/generateToken.js';
-import { sendWhatsAppOTP } from '../utils/termii.js';
-import { generateOTP, hashOTP, verifyOTP, normalizePhoneNumber } from '../utils/otp.js';
+import { verifyOTP, normalizePhoneNumber } from '../utils/otp.js';
 
-// Signup new user and send OTP
 const signup = async (req, res, next) => {
   try {
-    const { firstName, lastName, email, phone, password, referralCode } = req.body;
+    const { firstName, lastName, email, phone, password, bankDetails, referralCode } = req.body;
     
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     
     if (existingUser) {
       return next(new AppError('User with email already exists', 400));
     }
 
-    // Handle referral code if provided
     let referrer = null;
     if (referralCode) {
       referrer = await User.findOne({ referralCode });
@@ -25,25 +21,24 @@ const signup = async (req, res, next) => {
       }
     }
 
-    // Create new user
     const newUser = await User.create({
       firstName,
       lastName,
       email,
       phone,
       password,
+      bankDetails,
       referredBy: referrer?._id
     });
 
-    // Add referral bonus to referrer
     if (referrer) {
-      referrer.referralEarnings += process.env.REFERRAL_BONUS || 2000;
+      referrer.referralEarnings = Number(referrer.referralEarnings || 0) + (Number(process.env.REFERRAL_BONUS) || 2000);
       await referrer.save();
     }
 
     res.status(201).json({
       status: 'success',
-      message: 'User created successfully. OTP sent to WhatsApp.'
+      message: 'User created successfully.'
     });
   } catch (error) {
     next(error);
@@ -186,6 +181,10 @@ const getReferralStatus = async (req, res, next) => {
     const user = await User.findById(req.user.id)
       .select('referralEarnings referralBonusRequests referralCode');
 
+    // Get all users referred by this user
+    const referredUsers = await User.find({ referredBy: req.user.id })
+      .select('firstName lastName email createdAt');
+
     const canRequest = user.referralEarnings >= 10000;
     const pendingRequest = user.referralBonusRequests.find(req => req.status === 'pending');
 
@@ -196,7 +195,9 @@ const getReferralStatus = async (req, res, next) => {
         referralCode: user.referralCode,
         canRequestBonus: canRequest,
         hasPendingRequest: !!pendingRequest,
-        requests: user.referralBonusRequests
+        requests: user.referralBonusRequests,
+        referredUsers: referredUsers,
+        totalReferrals: referredUsers.length
       }
     });
   } catch (error) {

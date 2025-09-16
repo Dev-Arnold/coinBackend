@@ -1,5 +1,5 @@
 import express from 'express';
-import { signup, verifyOtp, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus, getDashboard } from '../controllers/authController.js';
+import { signup, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus, getDashboard } from '../controllers/authController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { validateRequest, schemas } from '../middlewares/validateRequest.js';
 
@@ -7,7 +7,6 @@ const router = express.Router();
 
 // Public routes
 router.post('/', validateRequest(schemas.signup), signup);
-router.post('/verify-otp', validateRequest(schemas.verifyOtp), verifyOtp);
 router.post('/login', validateRequest(schemas.login), login);
 router.post('/logout', logout);
 
