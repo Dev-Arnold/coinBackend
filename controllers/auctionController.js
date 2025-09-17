@@ -160,13 +160,16 @@ const reserveCoin = async (req, res, next) => {
     userCoin.reservationExpires = expiresAt;
     await userCoin.save();
 
+    // Calculate current value with profit
+    const profitInfo = userCoin.getProfitInfo();
+    
     res.status(200).json({
       status: 'success',
       message: 'Coin reserved successfully. Complete payment within 15 minutes or face 20 credit score penalty.',
       data: {
         coinId,
         plan,
-        amount: userCoin.currentValue,
+        amount: profitInfo.currentValue,
         seller: {
           name: `${userCoin.owner.firstName} ${userCoin.owner.lastName}`,
           bankDetails: userCoin.owner.bankDetails,
@@ -205,12 +208,16 @@ const submitBidWithProof = async (req, res, next) => {
     // Get current auction session
     const currentAuction = await AuctionSession.findOne({ isActive: true });
     
+    // Calculate current value with profit
+    const profitInfo = userCoin.getProfitInfo();
+    console.log('profitInfo', profitInfo);
+    
     // Create transaction
     const transaction = await Transaction.create({
       buyer: userId,
       userCoin: coinId,
       seller: userCoin.owner,
-      amount: userCoin.currentValue,
+      amount: profitInfo.currentValue,
       plan,
       paymentMethod,
       paymentProof: req.file.path,

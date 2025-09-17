@@ -219,6 +219,7 @@ const startAuctionManually = async (req, res, next) => {
     
     // Check if there's already an active auction
     const activeAuction = await AuctionSession.findOne({ isActive: true });
+    console.log(activeAuction);
     if (activeAuction) {
       return next(new AppError('An auction is already active', 400));
     }
