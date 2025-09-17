@@ -241,6 +241,8 @@ const releaseCoinToBuyer = async (req, res, next) => {
 
     const transaction = await Transaction.findById(transactionId)
       .populate('buyer', 'name');
+
+      console.log(transaction);
     
     if (!transaction) {
       return next(new AppError('Transaction not found', 404));
@@ -255,6 +257,7 @@ const releaseCoinToBuyer = async (req, res, next) => {
     if (!originalUserCoin) {
       return next(new AppError('Original coin not found', 404));
     }
+    console.log('originalUserCoin', originalUserCoin);
 
     // Check if user is authorized to release (either seller or owner)
     const sellerId = transaction.seller || originalUserCoin.owner;
@@ -266,7 +269,7 @@ const releaseCoinToBuyer = async (req, res, next) => {
     const newUserCoin = await UserCoin.create({
       category: originalUserCoin.category,
       plan: transaction.plan,
-      profitPercentage: transaction.profitPercentage,
+      profitPercentage: originalUserCoin.profitPercentage,
       owner: transaction.buyer._id,
       currentPrice: transaction.amount,
       boughtFrom: originalUserCoin.owner,

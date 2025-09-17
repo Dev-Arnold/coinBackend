@@ -166,7 +166,7 @@ const reserveCoin = async (req, res, next) => {
       data: {
         coinId,
         plan,
-        amount: userCoin.currentPrice,
+        amount: userCoin.currentValue,
         seller: {
           name: `${userCoin.owner.firstName} ${userCoin.owner.lastName}`,
           bankDetails: userCoin.owner.bankDetails,
@@ -210,7 +210,7 @@ const submitBidWithProof = async (req, res, next) => {
       buyer: userId,
       userCoin: coinId,
       seller: userCoin.owner,
-      amount: userCoin.currentPrice,
+      amount: userCoin.currentValue,
       plan,
       paymentMethod,
       paymentProof: req.file.path,
