@@ -21,7 +21,7 @@ const getAuctionStatus = async (req, res, next) => {
       isApproved: true
     })
     .populate('owner', 'firstName lastName')
-    .select('_id category currentPrice plan profitPercentage owner');
+    .select('_id category currentPrice plan profitPercentage owner purchaseDate createdAt');
 
     const nextAuctionTime = AuctionSession.getNextAuctionTime();
 
@@ -56,26 +56,29 @@ const getAuctionCoins = async (req, res, next) => {
       isApproved: true
     })
     .populate('owner', 'firstName lastName')
-    .select('_id currentPrice category plan profitPercentage owner status');
+    .select('_id currentPrice category plan profitPercentage owner status purchaseDate createdAt');
 
     // Group by category
     const coinsByCategory = {};
 
     userCoins.forEach(userCoin => {
+      const profitInfo = userCoin.getProfitInfo();
+      // console.log('profitInfo', profitInfo);
+      
       if (!coinsByCategory[userCoin.category]) {
         coinsByCategory[userCoin.category] = { coins: [], count: 0, minPrice: Infinity, maxPrice: 0 };
       }
       coinsByCategory[userCoin.category].coins.push({
         _id: userCoin._id,
-        price: userCoin.currentPrice,
+        price: profitInfo.currentValue,
         plan: userCoin.plan,
         profitPercentage: userCoin.profitPercentage,
         owner: userCoin.owner,
         status: userCoin.status
       });
       coinsByCategory[userCoin.category].count++;
-      coinsByCategory[userCoin.category].minPrice = Math.min(coinsByCategory[userCoin.category].minPrice, userCoin.currentPrice);
-      coinsByCategory[userCoin.category].maxPrice = Math.max(coinsByCategory[userCoin.category].maxPrice, userCoin.currentPrice);
+      coinsByCategory[userCoin.category].minPrice = Math.min(coinsByCategory[userCoin.category].minPrice, profitInfo.currentValue);
+      coinsByCategory[userCoin.category].maxPrice = Math.max(coinsByCategory[userCoin.category].maxPrice, profitInfo.currentValue);
     });
 
     res.status(200).json({

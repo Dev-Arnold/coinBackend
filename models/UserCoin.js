@@ -112,24 +112,42 @@ userCoinSchema.pre('save', function(next) {
 
 // Calculate current value based on plan and profit percentage
 userCoinSchema.methods.calculateCurrentValue = function() {
-  if (!this.purchaseDate) return this.currentPrice;
+  console.log('=== CALCULATE CURRENT VALUE DEBUG ===');
+  console.log('purchaseDate:', this.purchaseDate);
+  console.log('createdAt:', this.createdAt);
+  console.log('plan:', this.plan);
+  console.log('profitPercentage:', this.profitPercentage);
+  console.log('currentPrice:', this.currentPrice);
+  
+  const startDate = this.purchaseDate || this.createdAt;
+  if (!startDate) {
+    console.log('No start date found, returning currentPrice');
+    return this.currentPrice;
+  }
+  
+  const now = Date.now();
+  console.log('startDate timestamp:', startDate.getTime());
+  console.log('now timestamp:', now);
+  console.log('time difference (ms):', now - startDate.getTime());
   
   let timeHeld, planDuration, growth;
   
   if (this.plan === '3mins') {
-    timeHeld = Math.floor((Date.now() - this.purchaseDate) / (1000 * 60)); // minutes
+    timeHeld = Math.floor((now - startDate.getTime()) / (1000 * 60));
     planDuration = 3;
-    // Cap at plan duration
     timeHeld = Math.min(timeHeld, planDuration);
     growth = this.profitPercentage / planDuration / 100;
-    return Math.floor(this.currentPrice * (1 + (growth * timeHeld)));
+    const result = Math.floor(this.currentPrice * (1 + (growth * timeHeld)));
+    console.log(`3mins calculation: timeHeld=${timeHeld}, growth=${growth}, result=${result}`);
+    return result;
   } else {
-    timeHeld = Math.floor((Date.now() - this.purchaseDate) / (1000 * 60 * 60 * 24)); // days
+    timeHeld = Math.floor((now - startDate.getTime()) / (1000 * 60 * 60 * 24));
     planDuration = parseInt(this.plan.replace('days', ''));
-    // Cap at plan duration
     timeHeld = Math.min(timeHeld, planDuration);
     const dailyGrowth = this.profitPercentage / planDuration / 100;
-    return Math.floor(this.currentPrice * (1 + (dailyGrowth * timeHeld)));
+    const result = Math.floor(this.currentPrice * (1 + (dailyGrowth * timeHeld)));
+    console.log(`${this.plan} calculation: timeHeld=${timeHeld}, dailyGrowth=${dailyGrowth}, result=${result}`);
+    return result;
   }
 };
 
@@ -138,13 +156,14 @@ userCoinSchema.methods.hasMatured = function() {
   // Bonus coins are instantly matured
   if (this.isBonusCoin) return true;
   
-  if (!this.purchaseDate) return false;
+  const startDate = this.purchaseDate || this.createdAt;
+  if (!startDate) return false;
   
   if (this.plan === '3mins') {
-    const minutesHeld = Math.floor((Date.now() - this.purchaseDate) / (1000 * 60));
+    const minutesHeld = Math.floor((Date.now() - startDate) / (1000 * 60));
     return minutesHeld >= 3;
   } else {
-    const daysHeld = Math.floor((Date.now() - this.purchaseDate) / (1000 * 60 * 60 * 24));
+    const daysHeld = Math.floor((Date.now() - startDate) / (1000 * 60 * 60 * 24));
     const planDays = parseInt(this.plan.replace('days', ''));
     return daysHeld >= planDays;
   }
