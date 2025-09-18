@@ -58,7 +58,7 @@ const getUser = async (req, res, next) => {
 // Manually assign coin to user
 const assignCoinToUser = async (req, res, next) => {
   try {
-    const { plan, currentPrice, isBonusCoin = false } = req.body;
+    const { currentPrice } = req.body;
 
     let {userId} = req.params; 
     console.log(userId)
@@ -69,55 +69,21 @@ const assignCoinToUser = async (req, res, next) => {
       return next(new AppError('User not found', 404));
     }
 
-    // Set profit percentage based on plan
-    let profitPercentage;
-    switch(plan) {
-      case '3mins':
-        profitPercentage = 35;
-        break;
-      case '5days':
-        profitPercentage = 35;
-        break;
-      case '10days':
-        profitPercentage = 107;
-        break;
-      case '30days':
-        profitPercentage = 161;
-        break;
-      default:
-        return next(new AppError('Invalid plan selected', 400));
-    }
-
-    // Set category based on current price
-    let category;
-    if (currentPrice >= 10000 && currentPrice <= 100000) {
-      category = 'Category A';
-    } else if (currentPrice > 100000 && currentPrice <= 250000) {
-      category = 'Category B';
-    } else if (currentPrice > 250000 && currentPrice <= 500000) {
-      category = 'Category C';
-    } else if (currentPrice > 500000 && currentPrice <= 1000000) {
-      category = 'Category D';
-    } else {
-      return next(new AppError('Price must be between ₦10,000 and ₦1,000,000', 400));
-    }
 
     // Create user coin
     const userCoin = await UserCoin.create({
       owner: userId,
-      plan,
+      plan:'5days',
+      profitPercentage:35,
       currentPrice,
-      category,
-      profitPercentage,
-      isApproved: isBonusCoin,
-      isBonusCoin,
-      status: isBonusCoin ? 'available' : 'locked',
-      isLocked: !isBonusCoin
+      category:'Category A',
+      isApproved: true,
+      isBonusCoin:true,
+      status: 'available',
+      isLocked: false
     });
 
-    const message = isBonusCoin 
-      ? 'Bonus coin assigned and ready for auction'
-      : 'Coin assigned to user successfully';
+    const message = 'Bonus coin assigned and ready for auction';
 
     res.status(201).json({
       status: 'success',

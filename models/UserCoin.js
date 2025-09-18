@@ -5,16 +5,16 @@ const userCoinSchema = new mongoose.Schema({
   category: {
     type: String,
     enum: ['Category A', 'Category B', 'Category C', 'Category D'],
-    required: [true, 'UserCoin must have a category']
+    required: [false, 'UserCoin must have a category']
   },
   plan: {
     type: String,
-    required: [true, 'UserCoin must have a plan'],
+    required: [false, 'UserCoin must have a plan'],
     enum: ['3mins','5days', '10days', '30days']
   },
   profitPercentage: {
     type: Number,
-    required: [true, 'UserCoin must have profit percentage']
+    required: [false, 'UserCoin must have profit percentage']
   },
   owner: {
     type: mongoose.Schema.ObjectId,
