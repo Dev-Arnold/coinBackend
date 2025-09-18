@@ -63,7 +63,6 @@ const getAuctionCoins = async (req, res, next) => {
 
     userCoins.forEach(userCoin => {
       const profitInfo = userCoin.getProfitInfo();
-      // console.log('profitInfo', profitInfo);
       
       if (!coinsByCategory[userCoin.category]) {
         coinsByCategory[userCoin.category] = { coins: [], count: 0, minPrice: Infinity, maxPrice: 0 };

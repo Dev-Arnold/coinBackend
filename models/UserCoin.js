@@ -112,13 +112,7 @@ userCoinSchema.pre('save', function(next) {
 
 // Calculate current value based on plan and profit percentage
 userCoinSchema.methods.calculateCurrentValue = function() {
-  console.log('=== CALCULATE CURRENT VALUE DEBUG ===');
-  console.log('purchaseDate:', this.purchaseDate);
-  console.log('createdAt:', this.createdAt);
-  console.log('plan:', this.plan);
-  console.log('profitPercentage:', this.profitPercentage);
-  console.log('currentPrice:', this.currentPrice);
-  
+
   const startDate = this.purchaseDate || this.createdAt;
   if (!startDate) {
     console.log('No start date found, returning currentPrice');
@@ -138,7 +132,6 @@ userCoinSchema.methods.calculateCurrentValue = function() {
     timeHeld = Math.min(timeHeld, planDuration);
     growth = this.profitPercentage / planDuration / 100;
     const result = Math.floor(this.currentPrice * (1 + (growth * timeHeld)));
-    console.log(`3mins calculation: timeHeld=${timeHeld}, growth=${growth}, result=${result}`);
     return result;
   } else {
     timeHeld = Math.floor((now - startDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -146,7 +139,6 @@ userCoinSchema.methods.calculateCurrentValue = function() {
     timeHeld = Math.min(timeHeld, planDuration);
     const dailyGrowth = this.profitPercentage / planDuration / 100;
     const result = Math.floor(this.currentPrice * (1 + (dailyGrowth * timeHeld)));
-    console.log(`${this.plan} calculation: timeHeld=${timeHeld}, dailyGrowth=${dailyGrowth}, result=${result}`);
     return result;
   }
 };

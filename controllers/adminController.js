@@ -521,9 +521,23 @@ const approveReferralBonus = async (req, res, next) => {
       return next(new AppError('Request not found or already processed', 404));
     }
 
+    // Determine category based on request amount
+    let category;
+    if (request.amount >= 10000 && request.amount <= 100000) {
+      category = 'Category A';
+    } else if (request.amount > 100000 && request.amount <= 250000) {
+      category = 'Category B';
+    } else if (request.amount > 250000 && request.amount <= 500000) {
+      category = 'Category C';
+    } else if (request.amount > 500000 && request.amount <= 1000000) {
+      category = 'Category D';
+    } else {
+      category = 'Category A'; // Default fallback
+    }
+
     // Create bonus coin with referral earnings as price
     const bonusCoin = await UserCoin.create({
-      category: 'Category A',
+      category,
       plan: '5days',
       profitPercentage: 35,
       owner: userId,
@@ -642,6 +656,63 @@ const deleteUserCoin = async (req, res, next) => {
   }
 };
 
+// Get users who have referred others
+const getUsersWithReferrals = async (req, res, next) => {
+  try {
+    const usersWithReferrals = await User.aggregate([
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: 'referredBy',
+          as: 'referrals'
+        }
+      },
+      {
+        $match: {
+          'referrals.0': { $exists: true }
+        }
+      },
+      {
+        $project: {
+          firstName: 1,
+          lastName: 1,
+          email: 1,
+          referralCode: 1,
+          referralEarnings: 1,
+          totalReferrals: { $size: '$referrals' },
+          referrals: {
+            $map: {
+              input: '$referrals',
+              as: 'referral',
+              in: {
+                _id: '$$referral._id',
+                firstName: '$$referral.firstName',
+                lastName: '$$referral.lastName',
+                email: '$$referral.email',
+                createdAt: '$$referral.createdAt'
+              }
+            }
+          }
+        }
+      },
+      {
+        $sort: { totalReferrals: -1 }
+      }
+    ]);
+
+    res.status(200).json({
+      status: 'success',
+      results: usersWithReferrals.length,
+      data: {
+        users: usersWithReferrals
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export { 
   getAllUsers, 
   getUser, 
@@ -663,5 +734,6 @@ export {
   getActiveTransactions,
   getPendingReferralRequests,
   approveReferralBonus,
-  updateDailyProfits
+  updateDailyProfits,
+  getUsersWithReferrals
 };

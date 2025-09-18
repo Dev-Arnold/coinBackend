@@ -20,7 +20,8 @@ import {
   getActiveTransactions,
   getPendingReferralRequests,
   approveReferralBonus,
-  updateDailyProfits
+  updateDailyProfits,
+  getUsersWithReferrals
 } from '../controllers/adminController.js';
 import { protect, isAdmin } from '../middlewares/authMiddleware.js';
 import { validateRequest, schemas } from '../middlewares/validateRequest.js';
@@ -33,6 +34,7 @@ router.use(protect, isAdmin);
 // User management routes
 router.get('/users', getAllUsers);
 router.get('/users/:id', getUser);
+router.get('/users-with-referrals', getUsersWithReferrals);
 router.patch('/users/:userId/toggle-block', toggleUserBlock);
 
 // Coin type management routes
