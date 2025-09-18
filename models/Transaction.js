@@ -40,6 +40,9 @@ const transactionSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
+  releaseDeadline: {
+    type: Date
+  },
   referralCommission: {
     amount: Number,
     paidTo: {

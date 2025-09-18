@@ -155,7 +155,7 @@ const reserveCoin = async (req, res, next) => {
     }
 
     // Reserve coin
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     userCoin.isInAuction = false;
     userCoin.reservedBy = userId;
     userCoin.reservedAt = new Date();
@@ -167,7 +167,7 @@ const reserveCoin = async (req, res, next) => {
     
     res.status(200).json({
       status: 'success',
-      message: 'Coin reserved successfully. Complete payment within 15 minutes or face 20 credit score penalty.',
+      message: 'Coin reserved successfully. Complete payment within 1 hour or face 5% credit score penalty.',
       data: {
         coinId,
         plan,
@@ -212,7 +212,19 @@ const submitBidWithProof = async (req, res, next) => {
     
     // Calculate current value with profit
     const profitInfo = userCoin.getProfitInfo();
-    console.log('profitInfo', profitInfo);
+    
+    // Check if this is user's first bid and add referral bonus
+    const existingTransaction = await Transaction.findOne({ buyer: userId });
+    if (!existingTransaction) {
+      const buyer = await User.findById(userId);
+      if (buyer.referredBy) {
+        const referrer = await User.findById(buyer.referredBy);
+        if (referrer) {
+          referrer.referralEarnings = Number(referrer.referralEarnings || 0) + Math.floor(profitInfo.currentValue * 0.1);
+          await referrer.save();
+        }
+      }
+    }
     
     // Create transaction
     const transaction = await Transaction.create({
@@ -225,6 +237,7 @@ const submitBidWithProof = async (req, res, next) => {
       paymentProof: req.file.path,
       status: 'payment_uploaded',
       paymentDeadline: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      releaseDeadline: new Date(Date.now() + 60 * 60 * 1000), // 1 hour for seller to release
       auctionSession: currentAuction?._id
     });
 
@@ -269,13 +282,15 @@ const cancelReservation = async (req, res, next) => {
     userCoin.reservationExpires = undefined;
     await userCoin.save();
 
-    // Reduce user's credit score for cancellation
+    // Reduce user's credit score by 5% for cancellation
     const user = await User.findById(userId);
-    await user.reduceCreditScore(5);
+    const currentScore = user.creditScore || 100;
+    user.creditScore = Math.max(0, currentScore - (currentScore * 0.05));
+    await user.save();
 
     res.status(200).json({
       status: 'success',
-      message: 'Reservation cancelled. Coin returned to auction. 5 credit score points deducted.',
+      message: 'Reservation cancelled. Coin returned to auction. 5% credit score penalty applied.',
       data: {
         newCreditScore: user.creditScore
       }
@@ -464,8 +479,8 @@ const getPendingSales = async (req, res, next) => {
       coin: t.userCoin,
       amount: t.amount,
       paymentProof: t.paymentProof,
-      paymentDeadline: t.paymentDeadline,
-      timeRemaining: Math.max(0, Math.floor((t.paymentDeadline - new Date()) / (1000 * 60))),
+      releaseDeadline: t.releaseDeadline,
+      timeRemaining: t.releaseDeadline ? Math.max(0, Math.floor((t.releaseDeadline - new Date()) / (1000 * 60))) : null,
       createdAt: t.createdAt
     }));
 
@@ -546,6 +561,37 @@ const getSaleDetails = async (req, res, next) => {
   }
 };
 
+// Handle expired reservations (to be called by a cron job)
+const handleExpiredReservations = async () => {
+  try {
+    const expiredReservations = await UserCoin.find({
+      reservedBy: { $exists: true },
+      reservationExpires: { $lt: new Date() }
+    });
+
+    for (const userCoin of expiredReservations) {
+      // Penalize user with 5% credit score reduction
+      const user = await User.findById(userCoin.reservedBy);
+      if (user) {
+        const currentScore = user.creditScore || 100;
+        user.creditScore = Math.max(0, currentScore - (currentScore * 0.05));
+        await user.save();
+      }
+
+      // Return coin to auction
+      userCoin.isInAuction = true;
+      userCoin.reservedBy = undefined;
+      userCoin.reservedAt = undefined;
+      userCoin.reservationExpires = undefined;
+      await userCoin.save();
+    }
+
+    return { success: true, processedCount: expiredReservations.length };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
 export { 
   getAuctionStatus, 
   getAuctionCoins, 
@@ -559,5 +605,6 @@ export {
   getMySales,
   getPendingSales,
   getSalesSummary,
-  getSaleDetails
+  getSaleDetails,
+  handleExpiredReservations
 };

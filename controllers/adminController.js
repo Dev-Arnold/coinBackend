@@ -77,10 +77,10 @@ const assignCoinToUser = async (req, res, next) => {
       profitPercentage:35,
       currentPrice,
       category:'Category A',
-      isApproved: true,
-      isBonusCoin:true,
-      status: 'available',
-      isLocked: false
+      isApproved: false,
+      isBonusCoin: false,
+      status: 'locked',
+      isLocked: true
     });
 
     const message = 'Bonus coin assigned and ready for auction';
@@ -181,7 +181,7 @@ const getAuctionStatistics = async (req, res, next) => {
 // Manually start auction for testing
 const startAuctionManually = async (req, res, next) => {
   try {
-    const { durationMinutes = 30 } = req.body;
+    const { durationMinutes = 60 } = req.body;
     
     // Check if there's already an active auction
     const activeAuction = await AuctionSession.findOne({ isActive: true });

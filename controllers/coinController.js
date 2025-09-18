@@ -265,6 +265,14 @@ const releaseCoinToBuyer = async (req, res, next) => {
       return next(new AppError('You are not authorized to release this coin', 403));
     }
     
+    // Check if release deadline has passed and penalize seller
+    if (transaction.releaseDeadline && new Date() > transaction.releaseDeadline) {
+      const seller = await User.findById(sellerId);
+      const currentScore = seller.creditScore || 100;
+      seller.creditScore = Math.max(0, currentScore - (currentScore * 0.05)); // Reduce by 5%
+      await seller.save();
+    }
+    
     // Create UserCoin for the buyer
     const newUserCoin = await UserCoin.create({
       category: originalUserCoin.category,

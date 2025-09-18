@@ -112,18 +112,18 @@ userCoinSchema.pre('save', function(next) {
 
 // Calculate current value based on plan and profit percentage
 userCoinSchema.methods.calculateCurrentValue = function() {
+  // Bonus coins don't go through profit calculation
+  console.log(this.isBonusCoin);
+  if (this.isBonusCoin) {
+    return this.currentPrice;
+  }
 
   const startDate = this.purchaseDate || this.createdAt;
   if (!startDate) {
-    console.log('No start date found, returning currentPrice');
     return this.currentPrice;
   }
   
   const now = Date.now();
-  console.log('startDate timestamp:', startDate.getTime());
-  console.log('now timestamp:', now);
-  console.log('time difference (ms):', now - startDate.getTime());
-  
   let timeHeld, planDuration, growth;
   
   if (this.plan === '3mins') {
