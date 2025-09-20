@@ -73,14 +73,11 @@ const assignCoinToUser = async (req, res, next) => {
     // Create user coin
     const userCoin = await UserCoin.create({
       owner: userId,
-      plan:'5days',
-      profitPercentage:35,
       currentPrice,
-      category:'Category A',
-      isApproved: false,
-      isBonusCoin: false,
-      status: 'locked',
-      isLocked: true
+      isApproved: true,
+      isBonusCoin: true,
+      status: 'available',
+      isLocked: false
     });
 
     const message = 'Bonus coin assigned and ready for auction';
