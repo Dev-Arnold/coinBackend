@@ -237,7 +237,7 @@ const submitBidWithProof = async (req, res, next) => {
       paymentProof: req.file.path,
       status: 'payment_uploaded',
       paymentDeadline: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      releaseDeadline: new Date(Date.now() + 60 * 60 * 1000), // 1 hour for seller to release
+      releaseDeadline: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours for seller to release
       auctionSession: currentAuction?._id
     });
 
