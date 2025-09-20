@@ -129,6 +129,22 @@ const getPendingCoins = async (req, res, next) => {
   }
 };
 
+const getApprovedCoins = async (req, res, next) => {
+  try {
+    const approvedCoins = await UserCoin.find({ isApproved: true })
+      .sort('-createdAt');
+
+    res.status(200).json({
+      status: 'success',
+      results: approvedCoins.length,
+      data: {
+        coins: approvedCoins
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 // Release coins to auction
 const releaseCoinsForAuction = async (req, res, next) => {
@@ -683,6 +699,7 @@ export {
   getPendingCoins,
   assignCoinToUser, 
   getPendingUserCoins, 
+  getApprovedCoins,
   approveUserCoin, 
   deleteUserCoin,
   autoApprovePendingCoins,

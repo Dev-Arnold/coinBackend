@@ -21,7 +21,8 @@ import {
   getPendingReferralRequests,
   approveReferralBonus,
   updateDailyProfits,
-  getUsersWithReferrals
+  getUsersWithReferrals,
+  getApprovedCoins
 } from '../controllers/adminController.js';
 import { protect, isAdmin } from '../middlewares/authMiddleware.js';
 import { validateRequest, schemas } from '../middlewares/validateRequest.js';
@@ -52,6 +53,7 @@ router.get('/active-transactions', getActiveTransactions);
 // User coin management routes
 router.post('/:userId/assign-coin', validateRequest(schemas.assignCoin), assignCoinToUser);
 router.get('/pending-user-coins', getPendingUserCoins);
+router.get('/approved-user-coins', getApprovedCoins);
 router.patch('/coins/:userCoinId/approve', approveUserCoin);
 router.delete('/coins/:userCoinId', deleteUserCoin);
 router.post('/auto-approve-coins', triggerAutoApprove);
