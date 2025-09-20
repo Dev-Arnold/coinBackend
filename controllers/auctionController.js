@@ -311,7 +311,8 @@ const getMyReservations = async (req, res, next) => {
       reservedBy: userId,
       reservationExpires: { $gt: new Date() }
     })
-    .select('_id category currentPrice plan profitPercentage reservedAt reservationExpires')
+    .populate('owner', 'firstName lastName phone bankDetails')
+    .select('_id category currentPrice plan profitPercentage owner reservedAt reservationExpires')
     .sort('-reservedAt');
 
     res.status(200).json({
