@@ -118,6 +118,11 @@ userCoinSchema.methods.calculateCurrentValue = function() {
     return this.currentPrice;
   }
 
+  // If no plan is set (admin assigned coins), return current price
+  if (!this.plan) {
+    return this.currentPrice;
+  }
+
   const startDate = this.purchaseDate || this.createdAt;
   if (!startDate) {
     return this.currentPrice;
@@ -147,6 +152,9 @@ userCoinSchema.methods.calculateCurrentValue = function() {
 userCoinSchema.methods.hasMatured = function() {
   // Bonus coins are instantly matured
   if (this.isBonusCoin) return true;
+  
+  // Admin assigned coins without plans are considered matured
+  if (!this.plan) return true;
   
   const startDate = this.purchaseDate || this.createdAt;
   if (!startDate) return false;

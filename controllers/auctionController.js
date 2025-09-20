@@ -100,10 +100,10 @@ const reserveCoin = async (req, res, next) => {
     const userId = req.user.id;
 
     // Check if auction is active
-    const currentAuction = await AuctionSession.findOne({ isActive: true });
-    if (!currentAuction || !currentAuction.isCurrentlyActive()) {
-      return next(new AppError('No active auction at the moment', 400));
-    }
+    // const currentAuction = await AuctionSession.findOne({ isActive: true });
+    // if (!currentAuction || !currentAuction.isCurrentlyActive()) {
+    //   return next(new AppError('No active auction at the moment', 400));
+    // }
 
     // Find the user coin
     const userCoin = await UserCoin.findById(coinId).populate('owner', 'firstName lastName bankDetails phone');
