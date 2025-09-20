@@ -3,6 +3,7 @@ import {
   getAllUsers, 
   getUser, 
   getAllCoins,
+  getCoin,
   getPendingCoins,
   assignCoinToUser, 
   getPendingUserCoins, 
@@ -40,6 +41,7 @@ router.patch('/users/:userId/toggle-block', toggleUserBlock);
 
 // Coin type management routes
 router.get('/coins', getAllCoins);
+router.get('/coins/:coinId', getCoin);
 router.get('/pending-coins', getPendingCoins);
 
 // Auction management routes

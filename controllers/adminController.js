@@ -111,6 +111,35 @@ const getAllCoins = async (req, res, next) => {
   }
 };
 
+// Get single coin by ID
+const getCoin = async (req, res, next) => {
+  try {
+    const coin = await UserCoin.findById(req.params.coinId)
+      .populate('owner', 'firstName lastName email')
+      .populate('seller', 'firstName lastName email')
+      .populate('boughtFrom', 'firstName lastName email');
+
+    if (!coin) {
+      return next(new AppError('Coin not found', 404));
+    }
+
+    // Get profit info
+    const profitInfo = coin.getProfitInfo();
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        coin: {
+          ...coin.toObject(),
+          ...profitInfo
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Get pending coins for approval
 const getPendingCoins = async (req, res, next) => {
   try {
@@ -697,6 +726,7 @@ export {
   getAllUsers, 
   getUser, 
   getAllCoins,
+  getCoin,
   getPendingCoins,
   assignCoinToUser, 
   getPendingUserCoins, 

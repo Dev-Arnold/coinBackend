@@ -157,6 +157,7 @@ const reserveCoin = async (req, res, next) => {
     // Reserve coin
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     userCoin.isInAuction = false;
+    userCoin.plan = plan;
     userCoin.reservedBy = userId;
     userCoin.reservedAt = new Date();
     userCoin.reservationExpires = expiresAt;
@@ -278,6 +279,7 @@ const cancelReservation = async (req, res, next) => {
     // Return coin to auction and clear reservation
     userCoin.isInAuction = true;
     userCoin.reservedBy = undefined;
+    userCoin.plan = undefined;
     userCoin.reservedAt = undefined;
     userCoin.reservationExpires = undefined;
     await userCoin.save();
@@ -309,7 +311,7 @@ const getMyReservations = async (req, res, next) => {
       reservedBy: userId,
       reservationExpires: { $gt: new Date() }
     })
-    .select('_id category currentPrice reservedAt reservationExpires')
+    .select('_id category currentPrice plan profitPercentage reservedAt reservationExpires')
     .sort('-reservedAt');
 
     res.status(200).json({
