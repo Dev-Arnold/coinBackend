@@ -311,7 +311,7 @@ const releaseCoinToBuyer = async (req, res, next) => {
     next(error);
   }
 };
-// 1427100
+
 // List user coin for auction (only for matured coins)
 const listUserCoinForAuction = async (req, res, next) => {
   try {

@@ -146,13 +146,13 @@ const reserveCoin = async (req, res, next) => {
     }
 
     // Check if user already has an active reservation
-    const existingReservation = await UserCoin.findOne({
-      reservedBy: userId,
-      reservationExpires: { $gt: new Date() }
-    });
-    if (existingReservation) {
-      return next(new AppError('You already have an active reservation', 400));
-    }
+    // const existingReservation = await UserCoin.findOne({
+    //   reservedBy: userId,
+    //   reservationExpires: { $gt: new Date() }
+    // });
+    // if (existingReservation) {
+    //   return next(new AppError('You already have an active reservation', 400));
+    // }
 
     // Reserve coin
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
