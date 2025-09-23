@@ -177,6 +177,16 @@ const submitUserCoinForApproval = async (req, res, next) => {
       return next(new AppError('Coin has not matured yet. Cannot submit for approval.', 400));
     }
 
+    // Check recommitment policy - compare with last bought coin
+    const lastBoughtCoin = await UserCoin.findOne({ 
+      owner: userId, 
+      boughtFrom: { $exists: true } 
+    }).sort('-createdAt');
+      
+    if (lastBoughtCoin && userCoin.currentPrice < lastBoughtCoin.currentPrice) {
+      return next(new AppError('Follow the recommitment policy', 400));
+    }
+
     if (userCoin.status === 'pending_approval') {
       return next(new AppError('Coin is already pending approval', 400));
     }

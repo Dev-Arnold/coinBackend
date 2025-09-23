@@ -59,7 +59,7 @@ export const getMyMessages = async (req, res, next) => {
   }
 };
 
-// Get messages for specific user (admin only)
+
 export const getUserMessages = async (req, res, next) => {
   try {
     const { userId } = req.params;
@@ -84,7 +84,6 @@ export const getUserMessages = async (req, res, next) => {
   }
 };
 
-// Get all messages grouped by users (admin only)
 export const getAllMessages = async (req, res, next) => {
   try {
     const { status, page = 1, limit = 20 } = req.query;
