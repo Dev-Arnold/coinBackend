@@ -301,6 +301,24 @@ const releaseCoinToBuyer = async (req, res, next) => {
 
     // No balance update needed - seller receives payment outside platform
 
+    // Check if this is buyer's first purchase and add referral bonus
+    const existingTransaction = await Transaction.findOne({ 
+      buyer: transaction.buyer._id, 
+      status: 'confirmed',
+      _id: { $ne: transaction._id }
+    });
+    
+    if (!existingTransaction) {
+      const buyer = await User.findById(transaction.buyer._id);
+      if (buyer.referredBy) {
+        const referrer = await User.findById(buyer.referredBy);
+        if (referrer) {
+          referrer.referralEarnings = Number(referrer.referralEarnings || 0) + Math.floor(transaction.amount * 0.1);
+          await referrer.save();
+        }
+      }
+    }
+
     // Update transaction status
     transaction.status = 'confirmed';
     transaction.completedAt = new Date();

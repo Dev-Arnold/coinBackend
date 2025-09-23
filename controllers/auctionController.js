@@ -214,19 +214,6 @@ const submitBidWithProof = async (req, res, next) => {
     // Calculate current value with profit
     const profitInfo = userCoin.getProfitInfo();
     
-    // Check if this is user's first bid and add referral bonus
-    const existingTransaction = await Transaction.findOne({ buyer: userId });
-    if (!existingTransaction) {
-      const buyer = await User.findById(userId);
-      if (buyer.referredBy) {
-        const referrer = await User.findById(buyer.referredBy);
-        if (referrer) {
-          referrer.referralEarnings = Number(referrer.referralEarnings || 0) + Math.floor(profitInfo.currentValue * 0.1);
-          await referrer.save();
-        }
-      }
-    }
-    
     // Create transaction
     const transaction = await Transaction.create({
       buyer: userId,
