@@ -5,7 +5,7 @@ import { verifyOTP, normalizePhoneNumber } from '../utils/otp.js';
 
 const signup = async (req, res, next) => {
   try {
-    const { firstName, lastName, email, phone, password, bankDetails, referralCode } = req.body;
+    const { firstName, lastName, email, phone, password, bankDetails, referralCode, referralLink } = req.body;
     
     const existingUser = await User.findOne({ email });
     
@@ -14,10 +14,21 @@ const signup = async (req, res, next) => {
     }
 
     let referrer = null;
+    
+    // Handle referral code
     if (referralCode) {
       referrer = await User.findOne({ referralCode });
       if (!referrer) {
         return next(new AppError('Invalid referral code', 400));
+      }
+    }
+    
+    // Handle referral link (extract referral code from link)
+    if (referralLink && !referrer) {
+      const referralCodeFromLink = referralLink.split('/').pop(); // Extract code from URL
+      referrer = await User.findOne({ referralCode: referralCodeFromLink });
+      if (!referrer) {
+        return next(new AppError('Invalid referral link', 400));
       }
     }
 
@@ -185,12 +196,16 @@ const getReferralStatus = async (req, res, next) => {
 
     const canRequest = user.referralEarnings >= 10000;
     const pendingRequest = user.referralBonusRequests.find(req => req.status === 'pending');
+    
+    // Generate referral link
+    const referralLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/signup/${user.referralCode}`;
 
     res.status(200).json({
       status: 'success',
       data: {
         referralEarnings: user.referralEarnings,
         referralCode: user.referralCode,
+        referralLink: referralLink,
         canRequestBonus: canRequest,
         hasPendingRequest: !!pendingRequest,
         requests: user.referralBonusRequests,
@@ -278,4 +293,31 @@ const requestReferralBonus = async (req, res, next) => {
 
 
 
-export { signup, verifyOtp, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus, getDashboard };
+// Validate referral link/code
+const validateReferralLink = async (req, res, next) => {
+  try {
+    const { referralCode } = req.params;
+    
+    const referrer = await User.findOne({ referralCode })
+      .select('firstName lastName referralCode');
+    
+    if (!referrer) {
+      return next(new AppError('Invalid referral code', 404));
+    }
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        referrer: {
+          name: `${referrer.firstName} ${referrer.lastName}`,
+          referralCode: referrer.referralCode
+        },
+        valid: true
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export { signup, verifyOtp, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus, getDashboard, validateReferralLink };

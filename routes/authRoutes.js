@@ -1,5 +1,5 @@
 import express from 'express';
-import { signup, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus, getDashboard } from '../controllers/authController.js';
+import { signup, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus, getDashboard, validateReferralLink } from '../controllers/authController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { validateRequest, schemas } from '../middlewares/validateRequest.js';
 
@@ -9,6 +9,7 @@ const router = express.Router();
 router.post('/', validateRequest(schemas.signup), signup);
 router.post('/login', validateRequest(schemas.login), login);
 router.post('/logout', logout);
+router.get('/validate-referral/:referralCode', validateReferralLink);
 
 // Protected routes
 router.use(protect); // All routes after this middleware are protected

@@ -24,7 +24,8 @@ const schemas = {
     email: Joi.string().min(2).max(50).required(),
     phone: Joi.string().min(10).max(15).required(),
     password: Joi.string().min(6).required(),
-    referralCode:Joi.string().min(6).optional(),
+    referralCode: Joi.string().min(6).optional(),
+    referralLink: Joi.string().uri().optional(),
     bankDetails: Joi.object({
       accountName: Joi.string().required(),
       accountNumber: Joi.string().required(),

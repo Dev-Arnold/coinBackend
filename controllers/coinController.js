@@ -182,7 +182,7 @@ const submitUserCoinForApproval = async (req, res, next) => {
       owner: userId, 
       boughtFrom: { $exists: true } 
     }).sort('-createdAt');
-      
+
     if (lastBoughtCoin && userCoin.currentPrice < lastBoughtCoin.currentPrice) {
       return next(new AppError('Follow the recommitment policy', 400));
     }
@@ -298,8 +298,6 @@ const releaseCoinToBuyer = async (req, res, next) => {
     // Update buyer's balance to reflect new coin
     const buyer = await User.findById(transaction.buyer._id);
     await buyer.updateBalance();
-
-    // No balance update needed - seller receives payment outside platform
 
     // Check if this is buyer's first purchase and add referral bonus
     const existingTransaction = await Transaction.findOne({ 
