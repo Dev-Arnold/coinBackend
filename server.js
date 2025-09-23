@@ -175,27 +175,27 @@ cron.schedule('30 9 * * 1-6', endAuctionSession); // End morning auction
 cron.schedule('0 19 * * *', endAuctionSession); // End evening/Sunday auction
 
 // Create admin user on startup
-const createAdminUser = async () => {
-  try {
-    const adminExists = await User.findOne({ email: process.env.ADMIN_EMAIL });
+// const createAdminUser = async () => {
+//   try {
+//     const adminExists = await User.findOne({ email: process.env.ADMIN_EMAIL });
     
-    if (!adminExists) {
-      await User.create({
-        firstName: 'Admin',
-        lastName: 'User',
-        email: process.env.ADMIN_EMAIL,
-        phone: '1234567890',
-        password: process.env.ADMIN_PASSWORD,
-        role: 'admin',
-        isVerified: true,
-        kycStatus: 'verified'
-      });
-      console.log('Admin user created successfully');
-    }
-  } catch (error) {
-    console.error('Error creating admin user:', error);
-  }
-};
+//     if (!adminExists) {
+//       await User.create({
+//         firstName: 'Admin',
+//         lastName: 'User',
+//         email: process.env.ADMIN_EMAIL,
+//         phone: '1234567890',
+//         password: process.env.ADMIN_PASSWORD,
+//         role: 'admin',
+//         isVerified: true,
+//         kycStatus: 'verified'
+//       });
+//       console.log('Admin user created successfully');
+//     }
+//   } catch (error) {
+//     console.error('Error creating admin user:', error);
+//   }
+// };
 
 // Start server
 const port = process.env.PORT || 2500;
@@ -209,10 +209,6 @@ startServer().then(() => {
     startReservationCleanup();
     console.log('🧹 Reservation cleanup service started');
     
-    // Wait a bit then create admin user
-    setTimeout(async () => {
-      await createAdminUser();
-    }, 2000);
   });
 });
 

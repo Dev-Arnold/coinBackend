@@ -36,10 +36,8 @@ const signup = async (req, res, next) => {
       await referrer.save();
     }
 
-    res.status(201).json({
-      status: 'success',
-      message: 'User created successfully.'
-    });
+    createSendToken(newUser, 200, res);
+
   } catch (error) {
     next(error);
   }
