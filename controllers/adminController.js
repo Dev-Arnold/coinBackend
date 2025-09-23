@@ -230,7 +230,7 @@ const startAuctionManually = async (req, res, next) => {
     const activeAuction = await AuctionSession.findOne({ isActive: true });
     console.log(activeAuction);
     if (activeAuction) {
-      return next(new AppError('An auction is already active', 400));
+      return next(new AppError('Auction is already running.', 400));
     }
 
     // Release coins to auction
@@ -280,7 +280,7 @@ const endAuctionManually = async (req, res, next) => {
     const activeAuction = await AuctionSession.findOne({ isActive: true });
     
     if (!activeAuction) {
-      return next(new AppError('No active auction found', 404));
+      return next(new AppError('No active auction', 404));
     }
 
     activeAuction.isActive = false;
