@@ -423,6 +423,26 @@ const approveUserCoin = async (req, res, next) => {
   }
 };
 
+// Delete user
+const deleteUser = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+
+    await User.findByIdAndDelete(req.params.userId);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'User deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Block/unblock user
 const toggleUserBlock = async (req, res, next) => {
   try {
@@ -725,6 +745,7 @@ const getUsersWithReferrals = async (req, res, next) => {
 export { 
   getAllUsers, 
   getUser, 
+  deleteUser,
   getAllCoins,
   getCoin,
   getPendingCoins,

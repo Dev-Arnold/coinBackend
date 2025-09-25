@@ -2,6 +2,7 @@ import express from 'express';
 import { 
   getAllUsers, 
   getUser, 
+  deleteUser,
   getAllCoins,
   getCoin,
   getPendingCoins,
@@ -36,6 +37,7 @@ router.use(protect, isAdmin);
 // User management routes
 router.get('/users', getAllUsers);
 router.get('/users/:id', getUser);
+router.delete('/users/:userId', deleteUser);
 router.get('/users-with-referrals', getUsersWithReferrals);
 router.patch('/users/:userId/toggle-block', toggleUserBlock);
 

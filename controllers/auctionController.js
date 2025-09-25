@@ -274,7 +274,7 @@ const cancelReservation = async (req, res, next) => {
     // Reduce user's credit score by 5% for cancellation
     const user = await User.findById(userId);
     const currentScore = user.creditScore || 100;
-    user.creditScore = Math.max(0, currentScore - (currentScore * 0.05));
+    user.creditScore = Math.max(0, currentScore - (currentScore * 0.02));
     await user.save();
 
     res.status(200).json({
