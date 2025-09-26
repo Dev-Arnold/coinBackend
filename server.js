@@ -130,17 +130,39 @@ const createAuctionSession = async (startTime, endTime) => {
 
 const endAuctionSession = async () => {
   try {
-    const activeAuction = await AuctionSession.findOne({ isActive: true });
+     const activeAuction = await AuctionSession.findOne({ isActive: true });
     
-    if (activeAuction) {
-      activeAuction.isActive = false;
-      await activeAuction.save();
+    if (!activeAuction) {
+      return next(new AppError('No active auction', 404));
+    }
 
-      // End auction - coins remain in auction until sold or manually removed
+    activeAuction.isActive = false;
+    activeAuction.endTime = new Date(); // Set actual end time
+    activeAuction.coins = []; // Clear coins array
+    await activeAuction.save();
+
+    // Reset coins from auction
+    await UserCoin.updateMany(
+      { isInAuction: true },
+      { isInAuction: false, auctionStartDate: null }
+    );
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Auction ended successfully and coins reset',
+      data: {
+        auction: {
+          id: activeAuction._id,
+          startTime: activeAuction.startTime,
+          endTime: activeAuction.endTime,
+          isActive: activeAuction.isActive
+        }
+      }
+    });
       console.log('Auction ended - coins remain available for bidding');
 
       console.log(`Auction session ended: ${activeAuction._id}`);
-    }
+    
   } catch (error) {
     console.error('Error ending auction session:', error);
   }
@@ -148,7 +170,7 @@ const endAuctionSession = async () => {
 
 // Schedule auctions
 // Monday-Saturday: 9:00 AM and 6:30 PM WAT
-cron.schedule('34 20 * * 1-6', async () => {
+cron.schedule('48 20 * * 1-6', async () => {
   console.log('Starting morning auction (9:00 AM WAT)');
   const startTime = new Date();
   const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 60 minutes
@@ -172,7 +194,7 @@ cron.schedule('30 18 * * 0', async () => {
 
 // End auctions
 cron.schedule('0 10 * * 1-6', endAuctionSession); // End morning auction at 10:00 AM
-cron.schedule('36 20 * * *', endAuctionSession); // End evening/Sunday auction
+cron.schedule('50 20 * * *', endAuctionSession); // End evening/Sunday auction
 
 // Create admin user on startup
 // const createAdminUser = async () => {
