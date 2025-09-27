@@ -170,7 +170,7 @@ const endAuctionSession = async () => {
 
 // Schedule auctions
 // Monday-Saturday: 9:00 AM and 6:30 PM WAT
-cron.schedule('48 20 * * 1-6', async () => {
+cron.schedule('0 9 * * 1-6', async () => {
   console.log('Starting morning auction (9:00 AM WAT)');
   const startTime = new Date();
   const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 60 minutes
@@ -194,7 +194,7 @@ cron.schedule('30 18 * * 0', async () => {
 
 // End auctions
 cron.schedule('0 10 * * 1-6', endAuctionSession); // End morning auction at 10:00 AM
-cron.schedule('50 20 * * *', endAuctionSession); // End evening/Sunday auction
+cron.schedule('30 19 * * *', endAuctionSession); // End evening/Sunday auction at 7:30 PM
 
 // Create admin user on startup
 // const createAdminUser = async () => {
