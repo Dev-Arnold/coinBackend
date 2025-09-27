@@ -299,6 +299,19 @@ const releaseCoinToBuyer = async (req, res, next) => {
     const buyer = await User.findById(transaction.buyer._id);
     await buyer.updateBalance();
 
+    // Unlock buyer's last purchased coin if it hasn't matured
+    const lastBoughtCoin = await UserCoin.findOne({
+      owner: transaction.buyer._id,
+      boughtFrom: { $exists: true },
+      _id: { $ne: newUserCoin._id }
+    }).sort({ createdAt: -1 });
+
+    if (lastBoughtCoin && !lastBoughtCoin.hasMatured()) {
+      lastBoughtCoin.isLocked = false;
+      lastBoughtCoin.status = 'unlocked';
+      await lastBoughtCoin.save();
+    }
+
     // Check if this is buyer's first purchase and add referral bonus
     const existingTransaction = await Transaction.findOne({ 
       buyer: transaction.buyer._id, 

@@ -35,7 +35,7 @@ const userCoinSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['available', 'sold', 'locked', 'pending_payment', 'matured', 'pending_approval'],
+    enum: ['available', 'sold', 'locked', 'unlocked', 'pending_payment', 'matured', 'pending_approval'],
     default: 'locked'
   },
   isLocked: {
@@ -102,7 +102,7 @@ userCoinSchema.pre('save', function(next) {
       this.category = 'Category B';
     } else if (this.currentPrice > 250000 && this.currentPrice <= 500000) {
       this.category = 'Category C';
-    } else if (this.currentPrice > 500000 && this.currentPrice <= 1000000) {
+    } else if (this.currentPrice > 500000 && this.currentPrice <= 2000000) {
       this.category = 'Category D';
     }
   }
