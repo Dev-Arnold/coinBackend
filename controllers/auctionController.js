@@ -121,6 +121,19 @@ const reserveCoin = async (req, res, next) => {
       return next(new AppError('Your account is blocked', 403));
     }
 
+    // Check if user can reserve this coin based on last purchase amount
+    const lastTransaction = await Transaction.findOne({
+      buyer: userId,
+      status: 'confirmed'
+    }).sort({ createdAt: -1 });
+
+    if (lastTransaction) {
+      const profitInfo = userCoin.getProfitInfo();
+      if (profitInfo.currentValue < lastTransaction.amount) {
+        return next(new AppError(`You can only reserve coins with amount ₦${lastTransaction.amount.toLocaleString()} or higher. This coin is ₦${profitInfo.currentValue.toLocaleString()}`, 400));
+      }
+    }
+
     // Check spending limit for current auction session
     const userSpentInAuction = await Transaction.aggregate([
       {

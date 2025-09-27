@@ -48,7 +48,7 @@ const signup = async (req, res, next) => {
       await referrer.save();
     }
 
-    createSendToken(newUser, 200, res);
+    createSendToken(newUser, 201, res);
 
   } catch (error) {
     next(error);

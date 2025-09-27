@@ -30,7 +30,8 @@ const schemas = {
       accountName: Joi.string().required(),
       accountNumber: Joi.string().required(),
       bankName: Joi.string().required()
-    }).required()
+    }).required(),
+    usdtWallet: Joi.string().optional()
   }),
 
   // Verify OTP validation
