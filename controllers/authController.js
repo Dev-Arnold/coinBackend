@@ -5,7 +5,7 @@ import { verifyOTP, normalizePhoneNumber } from '../utils/otp.js';
 
 const signup = async (req, res, next) => {
   try {
-    const { firstName, lastName, email, phone, password, bankDetails, referralCode, referralLink } = req.body;
+    const { firstName, lastName, email, phone, password, bankDetails, usdtWallet, referralCode, referralLink } = req.body;
     
     const existingUser = await User.findOne({ email });
     
@@ -39,6 +39,7 @@ const signup = async (req, res, next) => {
       phone,
       password,
       bankDetails,
+      usdtWallet,
       referredBy: referrer?._id
     });
 
@@ -159,7 +160,7 @@ const getMe = async (req, res, next) => {
 // Update user profile
 const updateMe = async (req, res, next) => {
   try {
-    const { firstName, lastName, phone, bankDetails } = req.body;
+    const { firstName, lastName, phone, bankDetails, usdtWallet } = req.body;
 
     // Create object with allowed fields
     const updateData = {};
@@ -167,6 +168,7 @@ const updateMe = async (req, res, next) => {
     if (lastName) updateData.lastName = lastName;
     if (phone) updateData.phone = phone;
     if (bankDetails) updateData.bankDetails = bankDetails;
+    if (usdtWallet !== undefined) updateData.usdtWallet = usdtWallet;
 
     const updatedUser = await User.findByIdAndUpdate(req.user.id, updateData, {
       new: true,

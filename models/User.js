@@ -99,6 +99,9 @@ const userSchema = new mongoose.Schema({
       trim: true
     }
   },
+  usdtWallet: {
+    type: String
+  },
   createdAt: {
     type: Date,
     default: Date.now
