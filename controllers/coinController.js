@@ -177,9 +177,16 @@ const submitUserCoinForApproval = async (req, res, next) => {
       return next(new AppError('Coin has not matured yet. Cannot submit for approval.', 400));
     }
 
-    let myCoins = (await UserCoin.find({ owner: userId })).length;
-    if (myCoins < 2) {
-      return  next(new AppError('Follow recommitment policy by buying an extra coin', 400));
+    // Check if user has at least one unmatured coin (excluding the one being submitted)
+    const unmaturedCoins = await UserCoin.find({ 
+      owner: userId, 
+      _id: { $ne: userCoinId } 
+    });
+    
+    const hasUnmaturedCoin = unmaturedCoins.some(coin => !coin.hasMatured());
+    
+    if (!hasUnmaturedCoin) {
+      return next(new AppError('Before you can submit a coin for auction, you must have an extra coin that is not yet matured', 400));
     }
 
 
