@@ -202,10 +202,6 @@ const submitUserCoinForApproval = async (req, res, next) => {
       return next(new AppError('Coin is already pending approval', 400));
     }
 
-    if (!userCoin.isLocked) {
-      return next(new AppError('Coin is already unlocked', 400));
-    }
-
     // Submit for approval
     userCoin.status = 'pending_approval';
     userCoin.isApproved = false;
