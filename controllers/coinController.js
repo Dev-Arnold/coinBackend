@@ -177,14 +177,16 @@ const submitUserCoinForApproval = async (req, res, next) => {
       return next(new AppError('Coin has not matured yet. Cannot submit for approval.', 400));
     }
 
-    // Check if user has at least one other coin (excluding the one being submitted)
-    const otherCoins = await UserCoin.find({ 
+    // Check if user has at least one coin that hasn't been submitted or approved (excluding the one being submitted)
+    const availableCoins = await UserCoin.find({ 
       owner: userId, 
-      _id: { $ne: userCoinId } 
+      _id: { $ne: userCoinId },
+      status: { $nin: ['pending_approval', 'sold'] },
+      isApproved: false
     });
     
-    if (otherCoins.length === 0) {
-      return next(new AppError('Before you can submit a coin for auction, you must have an extra coin', 400));
+    if (availableCoins.length === 0) {
+      return next(new AppError('Before you can submit a coin for auction, you must have an extra coin that has not been submitted or approved', 400));
     }
 
 
