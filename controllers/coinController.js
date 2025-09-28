@@ -177,6 +177,21 @@ const submitUserCoinForApproval = async (req, res, next) => {
       return next(new AppError('Coin has not matured yet. Cannot submit for approval.', 400));
     }
 
+    // Check if this is the user's last bought coin (should remain locked)
+    const lastBoughtCoin = await UserCoin.findOne({
+      owner: userId,
+      boughtFrom: { $exists: true }
+    }).sort({ createdAt: -1 });
+
+    if (lastBoughtCoin && lastBoughtCoin._id.toString() === userCoinId) {
+      return next(new AppError('Cannot submit your most recent coin for approval. Buy another coin first.', 400));
+    }
+
+    // Check if coin is locked (last bought coins should remain locked)
+    if (userCoin.isLocked) {
+      return next(new AppError('This coin is locked and cannot be submitted for approval yet.', 400));
+    }
+
     // Check if user has at least one coin that hasn't been submitted or approved (excluding the one being submitted)
     const availableCoins = await UserCoin.find({ 
       owner: userId, 
@@ -308,17 +323,17 @@ const releaseCoinToBuyer = async (req, res, next) => {
     const buyer = await User.findById(transaction.buyer._id);
     await buyer.updateBalance();
 
-    // Unlock buyer's last purchased coin if it hasn't matured
-    const lastBoughtCoin = await UserCoin.findOne({
+    // Unlock buyer's previous last purchased coin (the one before this new purchase)
+    const previousLastCoin = await UserCoin.findOne({
       owner: transaction.buyer._id,
       boughtFrom: { $exists: true },
       _id: { $ne: newUserCoin._id }
     }).sort({ createdAt: -1 });
 
-    if (lastBoughtCoin && !lastBoughtCoin.hasMatured()) {
-      lastBoughtCoin.isLocked = false;
-      lastBoughtCoin.status = 'unlocked';
-      await lastBoughtCoin.save();
+    if (previousLastCoin) {
+      previousLastCoin.isLocked = false;
+      previousLastCoin.status = previousLastCoin.hasMatured() ? 'matured' : 'unlocked';
+      await previousLastCoin.save();
     }
 
     // Check if this is buyer's first purchase and add referral bonus
