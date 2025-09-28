@@ -177,7 +177,7 @@ const submitUserCoinForApproval = async (req, res, next) => {
       return next(new AppError('Coin has not matured yet. Cannot submit for approval.', 400));
     }
 
-    let myCoins = (await UserCoin.find()).length;
+    let myCoins = (await UserCoin.find({ owner: userId })).length;
     if (myCoins < 2) {
       return  next(new AppError('Follow recommitment policy by buying an extra coin', 400));
     }
@@ -285,7 +285,7 @@ const releaseCoinToBuyer = async (req, res, next) => {
     if (transaction.releaseDeadline && new Date() > transaction.releaseDeadline) {
       const seller = await User.findById(sellerId);
       const currentScore = seller.creditScore || 100;
-      seller.creditScore = Math.max(0, currentScore - (currentScore * 0.05)); // Reduce by 5%
+      seller.creditScore = Math.max(0, currentScore - (currentScore * 0.02)); // Reduce by 2%
       await seller.save();
     }
     

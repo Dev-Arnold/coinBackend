@@ -27,6 +27,7 @@ import UserCoin from './models/UserCoin.js';
 import User from './models/User.js';
 import { releaseCoinsToAuction } from './services/auctionService.js';
 import startReservationCleanup from './utils/reservationCleanup.js';
+import { handleExpiredReservations } from './controllers/auctionController.js';
 
 // Create Express app
 const app = express();
@@ -195,6 +196,14 @@ cron.schedule('30 18 * * 0', async () => {
 // End auctions
 cron.schedule('0 10 * * 1-6', endAuctionSession); // End morning auction at 10:00 AM
 cron.schedule('30 19 * * *', endAuctionSession); // End evening/Sunday auction at 7:30 PM
+
+// Handle expired reservations every 5 minutes
+cron.schedule('*/5 * * * *', async () => {
+  const result = await handleExpiredReservations();
+  if (result.success && result.processedCount > 0) {
+    console.log(`Processed ${result.processedCount} expired reservations`);
+  }
+});
 
 // Create admin user on startup
 // const createAdminUser = async () => {

@@ -181,7 +181,7 @@ const reserveCoin = async (req, res, next) => {
     
     res.status(200).json({
       status: 'success',
-      message: 'Coin reserved successfully. Complete payment within 1 hour or face 5% credit score penalty.',
+      message: 'Coin reserved successfully. Complete payment within 1 hour or face 2% credit score penalty.',
       data: {
         coinId,
         plan,
@@ -573,11 +573,11 @@ const handleExpiredReservations = async () => {
     });
 
     for (const userCoin of expiredReservations) {
-      // Penalize user with 5% credit score reduction
+      // Penalize user with 2% credit score reduction
       const user = await User.findById(userCoin.reservedBy);
       if (user) {
         const currentScore = user.creditScore || 100;
-        user.creditScore = Math.max(0, currentScore - (currentScore * 0.05));
+        user.creditScore = Math.max(0, currentScore - (currentScore * 0.02));
         await user.save();
       }
 
