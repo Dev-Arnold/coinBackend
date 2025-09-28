@@ -24,7 +24,7 @@ const releaseCoinsToAuction = async (auctionSessionId = null) => {
     const approvedUserCoins = await UserCoin.countDocuments({ 
       isApproved: true, 
       isInAuction: false, 
-      isLocked: false 
+      // isLocked: false 
     }).maxTimeMS(5000);
     
     console.log(`📊 User coins: ${totalUserCoins} (${approvedUserCoins} available for auction)`);
