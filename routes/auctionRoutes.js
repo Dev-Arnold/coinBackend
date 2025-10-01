@@ -12,7 +12,8 @@ import {
   getMySales,
   getPendingSales,
   getSalesSummary,
-  getSaleDetails
+  getSaleDetails,
+  getSalesHistory
 } from '../controllers/auctionController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { validateRequest, schemas } from '../middlewares/validateRequest.js';
@@ -37,6 +38,7 @@ router.get('/my-bids', getMyBids);
 router.get('/my-sales', getMySales);
 router.get('/pending-sales', getPendingSales);
 router.get('/sales-summary', getSalesSummary);
+router.get('/sales-history', getSalesHistory);
 router.get('/sales/:transactionId', getSaleDetails);
 
 export default router;

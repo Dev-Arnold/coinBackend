@@ -600,6 +600,44 @@ const handleExpiredReservations = async () => {
   }
 };
 
+// Get sales history (coins released to buyers)
+const getSalesHistory = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    const salesHistory = await Transaction.find({
+      seller: userId,
+      status: 'confirmed'
+    })
+    .populate('buyer', 'firstName lastName email')
+    .populate('userCoin', 'category plan currentPrice')
+    .select('amount completedAt createdAt')
+    .sort('-completedAt');
+
+    const formattedHistory = salesHistory.map(sale => ({
+      _id: sale._id,
+      buyer: {
+        name: `${sale.buyer.firstName} ${sale.buyer.lastName}`,
+        email: sale.buyer.email
+      },
+      coin: sale.userCoin,
+      amount: sale.amount,
+      purchaseDate: sale.createdAt,
+      releasedAt: sale.completedAt
+    }));
+
+    res.status(200).json({
+      status: 'success',
+      results: formattedHistory.length,
+      data: {
+        salesHistory: formattedHistory
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export { 
   getAuctionStatus, 
   getAuctionCoins, 
@@ -614,5 +652,6 @@ export {
   getPendingSales,
   getSalesSummary,
   getSaleDetails,
+  getSalesHistory,
   handleExpiredReservations
 };
