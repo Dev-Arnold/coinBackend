@@ -361,7 +361,8 @@ const releaseCoinToBuyer = async (req, res, next) => {
 
     // Log activity
     const { logActivity } = await import('../controllers/activityController.js');
-    await logActivity('coin_released', `Coin released to ${transaction.buyer.firstName}`, sellerId, transaction.amount, transaction.userCoin);
+    const buyerDetails = await User.findById(transaction.buyer._id).select('firstName lastName');
+    await logActivity('coin_released', `Coin released to ${buyerDetails.firstName} ${buyerDetails.lastName}`, sellerId, transaction.amount, transaction.userCoin);
 
     // Delete original user coin
     await UserCoin.findByIdAndDelete(transaction.userCoin);
