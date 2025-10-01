@@ -19,6 +19,7 @@ import auctionRoutes from './routes/auctionRoutes.js';
 import coinRoutes from './routes/coinRoutes.js';
 import kycRoutes from './routes/kycRoutes.js';
 import messageRoutes from "./routes/messageRoutes.js";
+import activityRoutes from './routes/activityRoutes.js';
 
 // Import models for auction scheduling
 import AuctionSession from './models/AuctionSession.js';
@@ -82,6 +83,7 @@ app.use('/api/auction', auctionRoutes);
 app.use('/api/coins', coinRoutes);
 app.use('/api/kyc', kycRoutes);
 app.use("/api/messages", messageRoutes);
+app.use('/api/activity', activityRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -124,22 +126,26 @@ const createAuctionSession = async (startTime, endTime) => {
     console.log(`Auction session created: ${auction._id}`);
     console.log('Coins released by category:', releaseResult.results);
     console.log(`Total coins in auction: ${totalReleased}`);
+    
+    // Log activity
+    const { logActivity } = await import('./controllers/activityController.js');
+    await logActivity('auction_started', `Auction started with ${totalReleased} coins`);
   } catch (error) {
     console.error('Error creating auction session:', error);
   }
 };
 
-const endAuctionSession = async (req,res) => {
+const endAuctionSession = async () => {
   try {
-     const activeAuction = await AuctionSession.findOne({ isActive: true });
+    const activeAuction = await AuctionSession.findOne({ isActive: true });
     
     if (!activeAuction) {
-      return next(new AppError('No active auction', 404));
+      console.log('No active auction to end');
+      return;
     }
 
     activeAuction.isActive = false;
-    activeAuction.endTime = new Date(); // Set actual end time
-    activeAuction.coins = []; // Clear coins array
+    activeAuction.endTime = new Date();
     await activeAuction.save();
 
     // Reset coins from auction
@@ -148,21 +154,11 @@ const endAuctionSession = async (req,res) => {
       { isInAuction: false, auctionStartDate: null }
     );
 
-    res.status(200).json({
-      status: 'success',
-      message: 'Auction ended successfully and coins reset',
-      data: {
-        auction: {
-          id: activeAuction._id,
-          startTime: activeAuction.startTime,
-          endTime: activeAuction.endTime,
-          isActive: activeAuction.isActive
-        }
-      }
-    });
-      console.log('Auction ended - coins remain available for bidding');
-
-      console.log(`Auction session ended: ${activeAuction._id}`);
+    console.log(`Auction session ended: ${activeAuction._id}`);
+    
+    // Log activity
+    const { logActivity } = await import('./controllers/activityController.js');
+    await logActivity('auction_ended', `Auction session ended: ${activeAuction._id}`);
     
   } catch (error) {
     console.error('Error ending auction session:', error);
