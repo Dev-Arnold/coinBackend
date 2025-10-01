@@ -241,6 +241,11 @@ const submitBidWithProof = async (req, res, next) => {
       releaseDeadline: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours for seller to release
       auctionSession: currentAuction?._id
     });
+    
+    // Log activity
+    const { logActivity } = await import('../controllers/activityController.js');
+    const buyer = await User.findById(userId).select('firstName lastName');
+    await logActivity('coin_bought', `${buyer.firstName} ${buyer.lastName} uploaded payment proof for ₦${transaction.amount.toLocaleString()}`, userId, transaction.amount, userCoin._id);
 
     // Clear reservation
     userCoin.reservedBy = undefined;
