@@ -16,6 +16,8 @@ import {
   getStats,
   releaseCoinsForAuction,
   getAuctionStatistics,
+  getAllAuctionSessions,
+  getAuctionSessionDetails,
   startAuctionManually,
   endAuctionManually,
   resetCoinsFromAuction,
@@ -49,6 +51,8 @@ router.get('/pending-coins', getPendingCoins);
 // Auction management routes
 router.post('/release-coins-auction', releaseCoinsForAuction);
 router.get('/auction-stats', getAuctionStatistics);
+router.get('/auction-sessions', getAllAuctionSessions);
+router.get('/auction-sessions/:auctionId', getAuctionSessionDetails);
 router.post('/start-auction', startAuctionManually);
 router.post('/end-auction', endAuctionManually);
 router.post('/reset-coins', resetCoinsFromAuction);

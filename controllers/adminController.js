@@ -235,6 +235,7 @@ const startAuctionManually = async (req, res, next) => {
 
     // Release coins to auction
     const releaseResult = await releaseCoinsToAuction();
+    console.log(releaseResult);
     
     if (!releaseResult.success) {
       return next(new AppError(releaseResult.message, 400));
@@ -285,7 +286,7 @@ const endAuctionManually = async (req, res, next) => {
 
     activeAuction.isActive = false;
     activeAuction.endTime = new Date(); // Set actual end time
-    activeAuction.coins = []; // Clear coins array
+    // activeAuction.coins = []; // Clear coins array
     await activeAuction.save();
 
     // Reset coins from auction
@@ -352,6 +353,68 @@ const getActiveTransactions = async (req, res, next) => {
     res.status(200).json({
       status: 'success',
       data: { transactions: formattedTransactions }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get last 10 auction sessions
+const getAllAuctionSessions = async (req, res, next) => {
+  try {
+    const auctionSessions = await AuctionSession.find()
+      .sort('-createdAt')
+      .limit(10);
+
+    res.status(200).json({
+      status: 'success',
+      results: auctionSessions.length,
+      data: {
+        auctionSessions
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get details of a specific auction session
+const getAuctionSessionDetails = async (req, res, next) => {
+  try {
+    const { auctionId } = req.params;
+
+    const auctionSession = await AuctionSession.findById(auctionId);
+    if (!auctionSession) {
+      return next(new AppError('Auction session not found', 404));
+    }
+
+    // Get transactions from this auction session with populated data
+    const transactions = await Transaction.find({ auctionSession: auctionId })
+      .populate('buyer', 'firstName lastName email')
+      .populate('seller', 'firstName lastName email')
+      .populate('userCoin', 'category currentPrice plan')
+      .sort('-createdAt');
+
+    // Get unique participants (buyers and sellers)
+    const participantIds = new Set();
+    transactions.forEach(t => {
+      if (t.buyer) participantIds.add(t.buyer._id.toString());
+      if (t.seller) participantIds.add(t.seller._id.toString());
+    });
+
+    const participants = await User.find({ 
+      _id: { $in: Array.from(participantIds) } 
+    }).select('firstName lastName email');
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        auctionSession,
+        transactions,
+        participants,
+        totalTransactions: transactions.length,
+        totalParticipants: participants.length
+      }
     });
   } catch (error) {
     next(error);
@@ -760,6 +823,8 @@ export {
   getStats,
   releaseCoinsForAuction,
   getAuctionStatistics,
+  getAllAuctionSessions,
+  getAuctionSessionDetails,
   startAuctionManually,
   endAuctionManually,
   resetCoinsFromAuction,
