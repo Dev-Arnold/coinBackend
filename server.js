@@ -168,8 +168,8 @@ const endAuctionSession = async () => {
 
 // Schedule auctions
 // Monday-Saturday: 9:00 AM and 6:30 PM WAT
-cron.schedule('37 1 * * 1-6', async () => {
-  console.log('Starting test auction (12:15 AM WAT)');
+cron.schedule('55 8 * * 1-6', async () => {
+  console.log('Starting test auction (8:55 AM WAT)');
   const startTime = new Date();
   const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 60 minutes
   await createAuctionSession(startTime, endTime);
@@ -191,7 +191,7 @@ cron.schedule('30 18 * * 0', async () => {
 });
 
 // End auctions
-cron.schedule('42 1 * * 1-6', endAuctionSession); // End morning auction at 10:43 PM
+cron.schedule('0 10 * * 1-6', endAuctionSession); // End morning auction at 10:43 PM
 cron.schedule('30 19 * * *', endAuctionSession); // End evening/Sunday auction at 7:30 PM
 
 // Handle expired reservations every 5 minutes
