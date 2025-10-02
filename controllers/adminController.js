@@ -254,6 +254,27 @@ const startAuctionManually = async (req, res, next) => {
 
     const totalReleased = Object.values(releaseResult.results).reduce((sum, count) => sum + count, 0);
 
+    // Set timeout to automatically end auction
+    setTimeout(async () => {
+      try {
+        const auctionToEnd = await AuctionSession.findById(auction._id);
+        if (auctionToEnd && auctionToEnd.isActive) {
+          auctionToEnd.isActive = false;
+          auctionToEnd.endTime = new Date();
+          await auctionToEnd.save();
+          
+          await UserCoin.updateMany(
+            { isInAuction: true },
+            { isInAuction: false, auctionStartDate: null }
+          );
+          
+          console.log(`Manual auction ${auction._id} ended automatically after ${durationMinutes} minutes`);
+        }
+      } catch (error) {
+        console.error('Error auto-ending manual auction:', error);
+      }
+    }, durationMinutes * 60 * 1000);
+
     res.status(201).json({
       status: 'success',
       message: `Auction started successfully with ${totalReleased} coins`,
