@@ -49,7 +49,7 @@ app.use(helmet());
 
 // CORS configuration
 app.use(cors({
-  origin: ['https://locexcoinp2pauction-two.vercel.app','http://localhost:5173'],
+  origin: ['https://locexcoinp2pauction.com','https://locexcoinp2pauction.vercel.app','http://localhost:5173'],
   credentials: true,
   optionsSuccessStatus: 200
 }));
@@ -168,10 +168,10 @@ const endAuctionSession = async () => {
 
 // Schedule auctions
 // Monday-Saturday: 8:55 AM and 6:30 PM WAT
-cron.schedule('0 0 * * 1-6', async () => {
-  console.log('Starting morning auction (8:55 AM WAT)');
+cron.schedule('40 5 * * 1-6', async () => {
+  console.log('Starting morning auction (6:00 AM WAT)');
   const startTime = new Date();
-  const endTime = new Date(startTime.getTime() + 65 * 60 * 1000); // 65 minutes (8:55 AM to 10:00 AM)
+  const endTime = new Date(startTime.getTime() + 65 * 60 * 1000); // 65 minutes (6:00 AM to 7:05 AM)
   await createAuctionSession(startTime, endTime);
 });
 
@@ -191,7 +191,7 @@ cron.schedule('30 18 * * 0', async () => {
 });
 
 // End auctions
-cron.schedule('0 10 * * 1-6', endAuctionSession); // End morning auction at 10:43 PM
+cron.schedule('43 5 * * 1-6', endAuctionSession); // End morning auction at 10:43 PM
 cron.schedule('30 19 * * *', endAuctionSession); // End evening/Sunday auction at 7:30 PM
 
 // Handle expired reservations every 5 minutes

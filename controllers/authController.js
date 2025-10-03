@@ -200,7 +200,7 @@ const getReferralStatus = async (req, res, next) => {
     const pendingRequest = user.referralBonusRequests.find(req => req.status === 'pending');
     
     // Generate referral link
-    const referralLink = `${process.env.FRONTEND_URL || 'https://locexcoinp2pauction-two.vercel.app'}/signup/${user.referralCode}`;
+    const referralLink = `${process.env.FRONTEND_URL || 'https://locexcoinp2pauction-two.com'}/signup/${user.referralCode}`;
 
     res.status(200).json({
       status: 'success',
