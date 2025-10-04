@@ -1,7 +1,8 @@
 import express from 'express';
 import { 
   getAuctionStatus, 
-  getAuctionCoins, 
+  getAuctionCoins,
+  getAuctionCoinsDebug,
   reserveCoin,
   submitBidWithProof,
   cancelReservation,
@@ -28,6 +29,7 @@ router.get('/status', getAuctionStatus);
 router.use(protect);
 
 router.get('/coins', getAuctionCoins);
+router.get('/coins-debug', getAuctionCoinsDebug);
 router.post('/reserve-coin', validateRequest(schemas.reserveCoin), reserveCoin);
 router.post('/submit-bid', paymentUpload.single('paymentProof'), validateRequest(schemas.submitBidWithProof), submitBidWithProof);
 router.patch('/cancel-reservation/:coinId', cancelReservation);

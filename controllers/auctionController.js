@@ -41,6 +41,41 @@ const getAuctionStatus = async (req, res, next) => {
   }
 };
 
+// Debug route to compare database vs calculated values
+const getAuctionCoinsDebug = async (req, res, next) => {
+  try {
+    const userCoins = await UserCoin.find({
+      isInAuction: true,
+      isApproved: true
+    })
+    .populate('owner', 'firstName lastName')
+    .select('_id currentPrice category plan profitPercentage owner status purchaseDate createdAt isBonusCoin');
+
+    const debugCoins = userCoins.map(userCoin => {
+      const profitInfo = userCoin.getProfitInfo();
+      return {
+        _id: userCoin._id,
+        databasePrice: userCoin.currentPrice,
+        calculatedValue: profitInfo.currentValue,
+        difference: profitInfo.currentValue - userCoin.currentPrice,
+        category: userCoin.category,
+        plan: userCoin.plan,
+        profitPercentage: userCoin.profitPercentage,
+        isBonusCoin: userCoin.isBonusCoin,
+        purchaseDate: userCoin.purchaseDate,
+        owner: userCoin.owner
+      };
+    });
+
+    res.status(200).json({
+      status: 'success',
+      data: { debugCoins }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Get coins available in current auction grouped by category
 const getAuctionCoins = async (req, res, next) => {
   try {
@@ -640,7 +675,8 @@ const getSalesHistory = async (req, res, next) => {
 
 export { 
   getAuctionStatus, 
-  getAuctionCoins, 
+  getAuctionCoins,
+  getAuctionCoinsDebug,
   reserveCoin,
   submitBidWithProof, 
   cancelReservation,
