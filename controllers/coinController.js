@@ -285,13 +285,12 @@ const releaseCoinToBuyer = async (req, res, next) => {
     if (transaction.status !== 'payment_uploaded') {
       return next(new AppError('Payment proof must be uploaded first', 400));
     }
-
+    
     // Get original user coin to copy properties
     const originalUserCoin = await UserCoin.findById(transaction.userCoin);
     if (!originalUserCoin) {
       return next(new AppError('Original coin not found', 404));
     }
-    console.log('originalUserCoin', originalUserCoin);
 
     // Check if user is authorized to release (either seller or owner)
     const sellerId = transaction.seller || originalUserCoin.owner;

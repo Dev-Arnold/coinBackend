@@ -61,6 +61,7 @@ const userCoinSchema = new mongoose.Schema({
   },
   reservedAt: Date,
   reservationExpires: Date,
+  previousPlan: String,
   isBonusCoin: {
     type: Boolean,
     default: false
@@ -113,7 +114,6 @@ userCoinSchema.pre('save', function(next) {
 // Calculate current value based on plan and profit percentage
 userCoinSchema.methods.calculateCurrentValue = function() {
   // Bonus coins don't go through profit calculation
-  console.log(this.isBonusCoin);
   if (this.isBonusCoin) {
     return this.currentPrice;
   }

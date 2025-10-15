@@ -164,11 +164,19 @@ const getApprovedCoins = async (req, res, next) => {
       .populate('owner', 'firstName lastName')
       .sort('-createdAt');
 
+    const coinsWithCalculatedValue = approvedCoins.map(coin => {
+      const profitInfo = coin.getProfitInfo();
+      return {
+        ...coin.toObject(),
+        calculatedValue: profitInfo.currentValue
+      };
+    });
+
     res.status(200).json({
       status: 'success',
       results: approvedCoins.length,
       data: {
-        coins: approvedCoins
+        coins: coinsWithCalculatedValue
       }
     });
   } catch (error) {

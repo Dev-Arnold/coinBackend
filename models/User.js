@@ -187,7 +187,7 @@ userSchema.methods.updateDailyProfits = async function() {
       }
     } else {
       const daysSinceLastUpdate = Math.floor((now - coin.lastProfitUpdate) / (1000 * 60 * 60 * 24));
-      if (daysSinceLastUpdate >= 1) {
+      if (daysSinceLastUpdate >= 1 && coin.plan) {
         const planDays = parseInt(coin.plan.replace('days', ''));
         const dailyProfitRate = coin.profitPercentage / planDays / 100;
         profit = coin.currentPrice * dailyProfitRate * daysSinceLastUpdate;

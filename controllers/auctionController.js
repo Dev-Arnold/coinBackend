@@ -202,17 +202,18 @@ const reserveCoin = async (req, res, next) => {
     //   return next(new AppError('You already have an active reservation', 400));
     // }
 
+    // Calculate current value with profit using original plan
+    const profitInfo = userCoin.getProfitInfo();
+
     // Reserve coin
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     userCoin.isInAuction = false;
-    userCoin.plan = plan;
     userCoin.reservedBy = userId;
     userCoin.reservedAt = new Date();
     userCoin.reservationExpires = expiresAt;
+    userCoin.previousPlan = userCoin.plan; // Store original plan
+    userCoin.plan = plan; // Change to selected plan
     await userCoin.save();
-
-    // Calculate current value with profit
-    const profitInfo = userCoin.getProfitInfo();
     
     res.status(200).json({
       status: 'success',
@@ -273,7 +274,7 @@ const submitBidWithProof = async (req, res, next) => {
       paymentProof: req.file.path,
       status: 'payment_uploaded',
       paymentDeadline: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      releaseDeadline: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours for seller to release
+      releaseDeadline: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes for seller to release
       auctionSession: currentAuction?._id
     });
     
@@ -319,9 +320,12 @@ const cancelReservation = async (req, res, next) => {
     // Return coin to auction and clear reservation
     userCoin.isInAuction = true;
     userCoin.reservedBy = undefined;
-    userCoin.plan = undefined;
     userCoin.reservedAt = undefined;
     userCoin.reservationExpires = undefined;
+    if (userCoin.previousPlan) {
+      userCoin.plan = userCoin.previousPlan; // Restore original plan
+      userCoin.previousPlan = undefined; // Clear previousPlan
+    }
     await userCoin.save();
 
     // Reduce user's credit score by 5% for cancellation
@@ -352,13 +356,58 @@ const getMyReservations = async (req, res, next) => {
       reservationExpires: { $gt: new Date() }
     })
     .populate('owner', 'firstName lastName phone bankDetails')
-    .select('_id category currentPrice plan profitPercentage owner reservedAt reservationExpires')
+    .select('_id category currentPrice plan profitPercentage owner reservedAt reservationExpires purchaseDate createdAt previousPlan')
     .sort('-reservedAt');
+
+    const reservationsWithCalculatedValue = reservations.map(reservation => {
+      // Create a copy to avoid modifying the original
+      const reservationCopy = { ...reservation.toObject() };
+      
+      // Use original plan for calculation if it exists
+      if (reservation.previousPlan) {
+        // Keep the selected plan for display, only use previousPlan for calculation
+        // Manually calculate using original plan
+        const originalPlan = reservation.previousPlan;
+        let profitPercentage;
+        switch(originalPlan) {
+          case '3mins': profitPercentage = 35; break;
+          case '5days': profitPercentage = 35; break;
+          case '10days': profitPercentage = 107; break;
+          case '30days': profitPercentage = 161; break;
+          default: profitPercentage = reservation.profitPercentage;
+        }
+        
+        const startDate = reservation.purchaseDate || reservation.createdAt;
+        const now = Date.now();
+        let calculatedValue;
+        
+        if (originalPlan === '3mins') {
+          const timeHeld = Math.min(Math.floor((now - startDate.getTime()) / (1000 * 60)), 3);
+          const growth = profitPercentage / 3 / 100;
+          calculatedValue = Math.floor(reservation.currentPrice * (1 + (growth * timeHeld)));
+        } else {
+          const timeHeld = Math.min(Math.floor((now - startDate.getTime()) / (1000 * 60 * 60 * 24)), parseInt(originalPlan.replace('days', '')));
+          const dailyGrowth = profitPercentage / parseInt(originalPlan.replace('days', '')) / 100;
+          calculatedValue = Math.floor(reservation.currentPrice * (1 + (dailyGrowth * timeHeld)));
+        }
+        
+        return {
+          ...reservationCopy,
+          calculatedValue
+        };
+      } else {
+        const profitInfo = reservation.getProfitInfo();
+        return {
+          ...reservationCopy,
+          calculatedValue: profitInfo.currentValue
+        };
+      }
+    });
 
     res.status(200).json({
       status: 'success',
       results: reservations.length,
-      data: { reservations }
+      data: { reservations: reservationsWithCalculatedValue }
     });
   } catch (error) {
     next(error);
@@ -626,6 +675,10 @@ const handleExpiredReservations = async () => {
       userCoin.reservedBy = undefined;
       userCoin.reservedAt = undefined;
       userCoin.reservationExpires = undefined;
+      if (userCoin.previousPlan) {
+        userCoin.plan = userCoin.previousPlan; // Restore original plan
+        userCoin.previousPlan = undefined; // Clear previousPlan
+      }
       await userCoin.save();
     }
 

@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import AppError from '../utils/AppError.js';
 import { createSendToken } from '../utils/generateToken.js';
 import { verifyOTP, normalizePhoneNumber } from '../utils/otp.js';
+import sendEmail from '../utils/email.js';
 
 const signup = async (req, res, next) => {
   try {
@@ -295,6 +296,83 @@ const requestReferralBonus = async (req, res, next) => {
 
 
 
+// Forgot password
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      return next(new AppError('No user found with that email', 404));
+    }
+    
+    // Create JWT token with user ID and 10-minute expiry
+    const jwt = (await import('jsonwebtoken')).default;
+    const resetToken = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '10m' }
+    );
+    
+    const resetURL = `${process.env.FRONTEND_URL || 'https://locexcoinp2pauction.com'}/reset-password/${resetToken}`;
+    
+    const message = `Forgot your password? Use this token to reset: ${resetToken}\n\nOr click this link: ${resetURL}\n\nIf you didn't request this, please ignore this email.`;
+    
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'Password Reset Token (valid for 10 minutes)',
+        message,
+        resetToken,
+        html: `
+          <h2>Password Reset Request</h2>
+          <p>You requested a password reset. Use this token: <strong>${resetToken}</strong></p>
+          <p>Or <a href="${resetURL}">click here to reset your password</a></p>
+          <p>This token expires in 10 minutes.</p>
+          <p>If you didn't request this, please ignore this email.</p>
+        `
+      });
+      
+      res.status(200).json({
+        status: 'success',
+        message: 'Password reset token sent to email',
+        ...((!process.env.EMAIL_USERNAME || !process.env.EMAIL_PASSWORD) && { resetToken })
+      });
+    } catch (emailError) {
+      console.error('Email error:', emailError);
+      return next(new AppError('There was an error sending the email. Try again later.', 500));
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Reset password
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+    
+    // Verify JWT token
+    const jwt = (await import('jsonwebtoken')).default;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return next(new AppError('Token is invalid or user no longer exists', 400));
+    }
+    
+    user.password = password;
+    await user.save();
+    
+    createSendToken(user, 200, res);
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return next(new AppError('Token is invalid or has expired', 400));
+    }
+    next(error);
+  }
+};
+
 // Validate referral link/code
 const validateReferralLink = async (req, res, next) => {
   try {
@@ -322,4 +400,4 @@ const validateReferralLink = async (req, res, next) => {
   }
 };
 
-export { signup, verifyOtp, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus, getDashboard, validateReferralLink };
+export { signup, verifyOtp, login, logout, getMe, updateMe, requestReferralBonus, getReferralStatus, getDashboard, validateReferralLink, forgotPassword, resetPassword };

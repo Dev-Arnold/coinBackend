@@ -48,6 +48,13 @@ A Node.js + Express + MongoDB backend for a coin auction platform with user auth
    REFERRAL_COMMISSION_PERCENT=10
    AUCTION_DURATION_MINUTES=30
    PAYMENT_TIMEOUT_MINUTES=15
+   EMAIL_HOST=smtp.gmail.com
+   EMAIL_PORT=587
+   EMAIL_USERNAME=your_email@gmail.com
+   EMAIL_PASSWORD=your_app_password
+   EMAIL_FROM_NAME=Coin Auction Platform
+   EMAIL_FROM=noreply@coinauction.com
+   FRONTEND_URL=http://localhost:3000
    ```
 
 4. Start the server:
@@ -61,6 +68,8 @@ A Node.js + Express + MongoDB backend for a coin auction platform with user auth
 - `POST /api/v1/auth/register` - Register new user
 - `POST /api/v1/auth/login` - Login user
 - `POST /api/v1/auth/logout` - Logout user
+- `POST /api/v1/auth/forgot-password` - Send password reset email
+- `POST /api/v1/auth/reset-password` - Reset password with token
 - `GET /api/v1/auth/me` - Get current user profile
 - `PATCH /api/v1/auth/updateMe` - Update user profile
 
