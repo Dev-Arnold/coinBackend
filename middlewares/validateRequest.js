@@ -81,14 +81,16 @@ const schemas = {
   // Reserve coin validation
   reserveCoin: Joi.object({
     coinId: Joi.string().required(),
-    plan: Joi.string().valid('3mins', '5days', '10days', '30days').required()
+    plan: Joi.string().valid('3mins', '5days', '10days', '30days').required(),
+    amount: Joi.number().min(10000).optional()
   }),
 
   // Submit bid with proof validation
   submitBidWithProof: Joi.object({
     coinId: Joi.string().required(),
     plan: Joi.string().valid('3mins', '5days', '10days', '30days').required(),
-    paymentMethod: Joi.string().valid('bank_transfer', 'cryptocurrency').required()
+    paymentMethod: Joi.string().valid('bank_transfer', 'cryptocurrency').required(),
+    amount: Joi.number().min(10000).optional()
   }),
 
   // Send OTP validation

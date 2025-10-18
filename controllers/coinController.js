@@ -353,6 +353,20 @@ const releaseCoinToBuyer = async (req, res, next) => {
       }
     }
 
+    // Handle partial purchase - subtract amount from original coin
+    const currentValue = originalUserCoin.calculateCurrentValue();
+    const remainingValue = currentValue - transaction.amount;
+    
+    if (remainingValue <= 0) {
+      // Delete original coin if no value remains
+      await UserCoin.findByIdAndDelete(transaction.userCoin);
+    } else {
+      // Calculate proportional base price for remaining value
+      const ratio = remainingValue / currentValue;
+      originalUserCoin.currentPrice = Math.floor(originalUserCoin.currentPrice * ratio);
+      await originalUserCoin.save();
+    }
+
     // Update transaction status
     transaction.status = 'confirmed';
     transaction.completedAt = new Date();
@@ -362,9 +376,6 @@ const releaseCoinToBuyer = async (req, res, next) => {
     const { logActivity } = await import('../controllers/activityController.js');
     const buyerDetails = await User.findById(transaction.buyer._id).select('firstName lastName');
     await logActivity('coin_released', `Coin released to ${buyerDetails.firstName} ${buyerDetails.lastName}`, sellerId, transaction.amount, transaction.userCoin);
-
-    // Delete original user coin
-    await UserCoin.findByIdAndDelete(transaction.userCoin);
 
     res.status(200).json({
       status: 'success',

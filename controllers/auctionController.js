@@ -131,7 +131,7 @@ const getAuctionCoins = async (req, res, next) => {
 // Reserve coin for purchase (step 1)
 const reserveCoin = async (req, res, next) => {
   try {
-    const { coinId, plan } = req.body;
+    const { coinId, plan, amount } = req.body;
     const userId = req.user.id;
 
     // Check if auction is active
@@ -205,6 +205,23 @@ const reserveCoin = async (req, res, next) => {
     // Calculate current value with profit using original plan
     const profitInfo = userCoin.getProfitInfo();
 
+    // Validate amount if provided
+    if (amount) {
+      if (amount < 10000) {
+        return next(new AppError('Minimum purchase amount is ₦10,000', 400));
+      }
+      if (amount > profitInfo.currentValue) {
+        return next(new AppError(`Amount cannot exceed coin value of ₦${profitInfo.currentValue.toLocaleString()}`, 400));
+      }
+      // Check if remaining amount for owner would be at least ₦10,000
+      const remainingAmount = profitInfo.currentValue - amount;
+      if (remainingAmount > 0 && remainingAmount < 10000) {
+        return next(new AppError('Purchase amount would leave less than ₦10,000 for the owner. Either buy the full amount or leave at least ₦10,000', 400));
+      }
+    }
+
+    const purchaseAmount = amount || profitInfo.currentValue;
+
     // Reserve coin
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     userCoin.isInAuction = false;
@@ -221,7 +238,7 @@ const reserveCoin = async (req, res, next) => {
       data: {
         coinId,
         plan,
-        amount: profitInfo.currentValue,
+        amount: purchaseAmount,
         seller: {
           name: `${userCoin.owner.firstName} ${userCoin.owner.lastName}`,
           bankDetails: userCoin.owner.bankDetails,
@@ -238,7 +255,7 @@ const reserveCoin = async (req, res, next) => {
 // Submit bid with payment proof (step 2)
 const submitBidWithProof = async (req, res, next) => {
   try {
-    const { coinId, plan, paymentMethod } = req.body;
+    const { coinId, plan, paymentMethod, amount } = req.body;
     const userId = req.user.id;
 
     // Check if file was uploaded
@@ -262,19 +279,20 @@ const submitBidWithProof = async (req, res, next) => {
     
     // Calculate current value with profit
     const profitInfo = userCoin.getProfitInfo();
+    const transactionAmount = amount || profitInfo.currentValue;
     
     // Create transaction
     const transaction = await Transaction.create({
       buyer: userId,
       userCoin: coinId,
       seller: userCoin.owner,
-      amount: profitInfo.currentValue,
+      amount: transactionAmount,
       plan,
       paymentMethod,
       paymentProof: req.file.path,
       status: 'payment_uploaded',
       paymentDeadline: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      releaseDeadline: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes for seller to release
+      releaseDeadline: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours for seller to release
       auctionSession: currentAuction?._id
     });
     
@@ -282,7 +300,7 @@ const submitBidWithProof = async (req, res, next) => {
     const { logActivity } = await import('../controllers/activityController.js');
     const buyer = await User.findById(userId).select('firstName lastName');
     await logActivity('coin_bought', `${buyer.firstName} ${buyer.lastName} uploaded payment proof for ₦${transaction.amount.toLocaleString()}`, userId, transaction.amount, userCoin._id);
-
+    
     // Clear reservation
     userCoin.reservedBy = undefined;
     userCoin.reservedAt = undefined;
@@ -328,7 +346,7 @@ const cancelReservation = async (req, res, next) => {
     }
     await userCoin.save();
 
-    // Reduce user's credit score by 5% for cancellation
+    // Reduce user's credit score by 2% for cancellation
     const user = await User.findById(userId);
     const currentScore = user.creditScore || 100;
     user.creditScore = Math.max(0, currentScore - (currentScore * 0.02));
