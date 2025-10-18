@@ -14,7 +14,8 @@ import {
   getPendingSales,
   getSalesSummary,
   getSaleDetails,
-  getSalesHistory
+  getSalesHistory,
+  deletePendingSale
 } from '../controllers/auctionController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { validateRequest, schemas } from '../middlewares/validateRequest.js';
@@ -39,6 +40,7 @@ router.get('/my-auction-spending', getMyAuctionSpending);
 router.get('/my-bids', getMyBids);
 router.get('/my-sales', getMySales);
 router.get('/pending-sales', getPendingSales);
+router.delete('/pending-sales/:transactionId', deletePendingSale);
 router.get('/sales-summary', getSalesSummary);
 router.get('/sales-history', getSalesHistory);
 router.get('/sales/:transactionId', getSaleDetails);

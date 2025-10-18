@@ -156,6 +156,25 @@ const reserveCoin = async (req, res, next) => {
       return next(new AppError('Your account is blocked', 403));
     }
 
+    const profitInfo = userCoin.getProfitInfo();
+
+    // Validate amount if provided
+    if (amount) {
+      if (amount < 10000) {
+        return next(new AppError('Minimum purchase amount is ₦10,000', 400));
+      }
+      if (amount > profitInfo.currentValue) {
+        return next(new AppError(`Amount cannot exceed coin value of ₦${profitInfo.currentValue.toLocaleString()}`, 400));
+      }
+      // Check if remaining amount for owner would be at least ₦10,000
+      const remainingAmount = profitInfo.currentValue - amount;
+      if (remainingAmount > 0 && remainingAmount < 10000) {
+        return next(new AppError('Purchase amount would leave less than ₦10,000 for the owner. Either buy the full amount or leave at least ₦10,000', 400));
+      }
+    }
+
+    const purchaseAmount = amount || profitInfo.currentValue;
+
     // Check if user can reserve this coin based on last purchase amount
     const lastTransaction = await Transaction.findOne({
       buyer: userId,
@@ -163,9 +182,8 @@ const reserveCoin = async (req, res, next) => {
     }).sort({ createdAt: -1 });
 
     if (lastTransaction) {
-      const profitInfo = userCoin.getProfitInfo();
-      if (profitInfo.currentValue < lastTransaction.amount) {
-        return next(new AppError(`You can only reserve coins with amount ₦${lastTransaction.amount.toLocaleString()} or higher. This coin is ₦${profitInfo.currentValue.toLocaleString()}`, 400));
+      if (purchaseAmount < lastTransaction.amount) {
+        return next(new AppError(`You can only reserve coins with amount ₦${lastTransaction.amount.toLocaleString()} or higher. You're trying to buy ₦${purchaseAmount.toLocaleString()} worth of coin`, 400));
       }
     }
 
@@ -203,24 +221,7 @@ const reserveCoin = async (req, res, next) => {
     // }
 
     // Calculate current value with profit using original plan
-    const profitInfo = userCoin.getProfitInfo();
 
-    // Validate amount if provided
-    if (amount) {
-      if (amount < 10000) {
-        return next(new AppError('Minimum purchase amount is ₦10,000', 400));
-      }
-      if (amount > profitInfo.currentValue) {
-        return next(new AppError(`Amount cannot exceed coin value of ₦${profitInfo.currentValue.toLocaleString()}`, 400));
-      }
-      // Check if remaining amount for owner would be at least ₦10,000
-      const remainingAmount = profitInfo.currentValue - amount;
-      if (remainingAmount > 0 && remainingAmount < 10000) {
-        return next(new AppError('Purchase amount would leave less than ₦10,000 for the owner. Either buy the full amount or leave at least ₦10,000', 400));
-      }
-    }
-
-    const purchaseAmount = amount || profitInfo.currentValue;
 
     // Reserve coin
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
@@ -706,6 +707,41 @@ const handleExpiredReservations = async () => {
   }
 };
 
+// Delete pending sale
+const deletePendingSale = async (req, res, next) => {
+  try {
+    const { transactionId } = req.params;
+    const userId = req.user.id;
+
+    const transaction = await Transaction.findOne({
+      _id: transactionId,
+      seller: userId,
+      status: 'payment_uploaded'
+    });
+
+    if (!transaction) {
+      return next(new AppError('Pending sale not found or not authorized', 404));
+    }
+
+    // Return coin to auction
+    const userCoin = await UserCoin.findById(transaction.userCoin);
+    if (userCoin) {
+      userCoin.isInAuction = true;
+      await userCoin.save();
+    }
+
+    // Delete transaction
+    await Transaction.findByIdAndDelete(transactionId);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Pending sale deleted successfully. Coin returned to auction.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Get sales history (coins released to buyers)
 const getSalesHistory = async (req, res, next) => {
   try {
@@ -760,5 +796,6 @@ export {
   getSalesSummary,
   getSaleDetails,
   getSalesHistory,
-  handleExpiredReservations
+  handleExpiredReservations,
+  deletePendingSale
 };
