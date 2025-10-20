@@ -355,7 +355,9 @@ const releaseCoinToBuyer = async (req, res, next) => {
 
     // Handle partial purchase - subtract amount from original coin
     const currentValue = originalUserCoin.calculateCurrentValue();
+    console.log(currentValue)
     const remainingValue = currentValue - transaction.amount;
+    console.log(remainingValue)
     
     if (remainingValue <= 0) {
       // Delete original coin if no value remains
