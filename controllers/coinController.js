@@ -270,6 +270,7 @@ const getSellerBankDetails = async (req, res, next) => {
 // Release coin to buyer (seller confirms payment)
 const releaseCoinToBuyer = async (req, res, next) => {
   try {
+    console.log("🔥 Partial purchase logic triggered 🔥");
     const { transactionId } = req.params;
     const userId = req.user.id;
 
