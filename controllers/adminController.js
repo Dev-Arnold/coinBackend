@@ -691,6 +691,40 @@ const approveReferralBonus = async (req, res, next) => {
   }
 };
 
+// Reject referral bonus request
+const rejectReferralBonus = async (req, res, next) => {
+  try {
+    const { userId, requestId } = req.params;
+    const adminId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+
+    const request = user.referralBonusRequests.id(requestId);
+    if (!request || request.status !== 'pending') {
+      return next(new AppError('Request not found or already processed', 404));
+    }
+
+    // Update request status to rejected
+    request.status = 'rejected';
+    request.processedAt = new Date();
+    request.processedBy = adminId;
+    await user.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Referral bonus request rejected',
+      data: {
+        request
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Manually update daily profits for all users
 const updateDailyProfits = async (req, res, next) => {
   try {
@@ -860,6 +894,7 @@ export {
   getActiveTransactions,
   getPendingReferralRequests,
   approveReferralBonus,
+  rejectReferralBonus,
   updateDailyProfits,
   getUsersWithReferrals
 };

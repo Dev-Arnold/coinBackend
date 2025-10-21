@@ -24,6 +24,7 @@ import {
   getActiveTransactions,
   getPendingReferralRequests,
   approveReferralBonus,
+  rejectReferralBonus,
   updateDailyProfits,
   getUsersWithReferrals,
   getApprovedCoins
@@ -72,6 +73,7 @@ router.get('/stats', getStats);
 // Referral bonus routes
 router.get('/referral-requests', getPendingReferralRequests);
 router.patch('/referral-requests/:userId/:requestId/approve', approveReferralBonus);
+router.patch('/referral-requests/:userId/:requestId/reject', rejectReferralBonus);
 
 // Profit update route
 router.post('/update-daily-profits', updateDailyProfits);
