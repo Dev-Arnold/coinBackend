@@ -257,6 +257,7 @@ const reserveCoin = async (req, res, next) => {
 const submitBidWithProof = async (req, res, next) => {
   try {
     const { coinId, plan, paymentMethod, amount } = req.body;
+    console.log("Amount buyer wants to buy is : ", amount)
     const userId = req.user.id;
 
     // Check if file was uploaded
@@ -281,6 +282,7 @@ const submitBidWithProof = async (req, res, next) => {
     // Calculate current value with profit
     const profitInfo = userCoin.getProfitInfo();
     const transactionAmount = amount || profitInfo.currentValue;
+    console.log("The amount saved is : ", transactionAmount)
     
     // Create transaction
     const transaction = await Transaction.create({
