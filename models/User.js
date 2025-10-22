@@ -102,6 +102,10 @@ const userSchema = new mongoose.Schema({
   usdtWallet: {
     type: String
   },
+  lastProfitUpdate: {
+    type: Date,
+    default: Date.now
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -200,6 +204,10 @@ userSchema.methods.updateDailyProfits = async function() {
   
   // Update balance to reflect new profits
   await this.updateBalance();
+  
+  // Update user's last profit update time
+  this.lastProfitUpdate = now;
+  await this.save();
   
   return totalDailyProfit;
 };

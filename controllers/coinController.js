@@ -371,6 +371,7 @@ const releaseCoinToBuyer = async (req, res, next) => {
       const newCurrentPrice = Math.floor(originalUserCoin.currentPrice * ratio);
       console.log('New Current Price:', newCurrentPrice);
       originalUserCoin.currentPrice = newCurrentPrice;
+      originalUserCoin.isInAuction = true;
       await originalUserCoin.save();
     }
 

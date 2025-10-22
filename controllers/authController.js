@@ -137,8 +137,14 @@ const getMe = async (req, res, next) => {
     const user = await User.findById(req.user.id)
       .populate('referredBy', 'firstName lastName email');
     
-    // Update daily profits
-    const dailyProfitAdded = await user.updateDailyProfits();
+    // Only update profits if last update was more than 1 hour ago
+    const lastUpdate = user.lastProfitUpdate || user.createdAt;
+    const hoursSinceUpdate = (Date.now() - lastUpdate) / (1000 * 60 * 60);
+    
+    let dailyProfitAdded = 0;
+    if (hoursSinceUpdate >= 1) {
+      dailyProfitAdded = await user.updateDailyProfits();
+    }
     
     // Calculate total balance including coin values
     const totalBalance = await user.calculateTotalBalance();
