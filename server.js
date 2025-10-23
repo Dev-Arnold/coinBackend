@@ -49,7 +49,7 @@ app.use(helmet());
 
 // CORS configuration
 app.use(cors({
-  origin: ['https://locexcoinp2pauction.com','http://localhost:5173'],
+  origin: ['https://locexcoinp2pauction.com',"https://locexcoinp2pauction-two.vercel.app",'http://localhost:5173'],
   credentials: true,
   optionsSuccessStatus: 200
 }));
