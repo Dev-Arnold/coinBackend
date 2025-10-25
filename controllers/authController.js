@@ -44,10 +44,10 @@ const signup = async (req, res, next) => {
       referredBy: referrer?._id
     });
 
-    if (referrer) {
-      referrer.referralEarnings = Number(referrer.referralEarnings || 0) + (Number(process.env.REFERRAL_BONUS) || 2000);
-      await referrer.save();
-    }
+    // if (referrer) {
+    //   referrer.referralEarnings = Number(referrer.referralEarnings || 0) + (Number(process.env.REFERRAL_BONUS) || 2000);
+    //   await referrer.save();
+    // }
 
     createSendToken(newUser, 201, res);
 

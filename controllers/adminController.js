@@ -725,6 +725,26 @@ const rejectReferralBonus = async (req, res, next) => {
   }
 };
 
+// Delete all referral bonus requests
+const deleteAllReferralRequests = async (req, res, next) => {
+  try {
+    const result = await User.updateMany(
+      { 'referralBonusRequests.0': { $exists: true } },
+      { $set: { referralBonusRequests: [] } }
+    );
+
+    res.status(200).json({
+      status: 'success',
+      message: `All referral requests deleted from ${result.modifiedCount} users`,
+      data: {
+        usersModified: result.modifiedCount
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Manually update daily profits for all users
 const updateDailyProfits = async (req, res, next) => {
   try {
@@ -868,6 +888,49 @@ const getUsersWithReferrals = async (req, res, next) => {
   }
 };
 
+// Assign auction-ready coin to user
+const assignAuctionReadyCoin = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { currentPrice, plan, purchaseDate } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+
+    const planDays = parseInt(plan.replace('days', ''));
+    const maturedPurchaseDate = purchaseDate ? 
+      new Date(purchaseDate) : 
+      new Date(Date.now() - planDays * 24 * 60 * 60 * 1000);
+
+    const userCoin = await UserCoin.create({
+      owner: userId,
+      currentPrice,
+      plan,
+      purchaseDate: maturedPurchaseDate,
+      isApproved: false,
+      status: 'matured',
+      isLocked: false
+    });
+
+    const profitInfo = userCoin.getProfitInfo();
+
+    res.status(201).json({
+      status: 'success',
+      message: 'Matured auction-ready coin assigned successfully',
+      data: {
+        userCoin: {
+          ...userCoin.toObject(),
+          ...profitInfo
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export { 
   getAllUsers, 
   getUser, 
@@ -875,7 +938,8 @@ export {
   getAllCoins,
   getCoin,
   getPendingCoins,
-  assignCoinToUser, 
+  assignCoinToUser,
+  assignAuctionReadyCoin,
   getPendingUserCoins, 
   getApprovedCoins,
   approveUserCoin, 
@@ -895,6 +959,7 @@ export {
   getPendingReferralRequests,
   approveReferralBonus,
   rejectReferralBonus,
+  deleteAllReferralRequests,
   updateDailyProfits,
   getUsersWithReferrals
 };

@@ -6,7 +6,8 @@ import {
   getAllCoins,
   getCoin,
   getPendingCoins,
-  assignCoinToUser, 
+  assignCoinToUser,
+  assignAuctionReadyCoin,
   getPendingUserCoins, 
   approveUserCoin, 
   deleteUserCoin,
@@ -25,6 +26,7 @@ import {
   getPendingReferralRequests,
   approveReferralBonus,
   rejectReferralBonus,
+  deleteAllReferralRequests,
   updateDailyProfits,
   getUsersWithReferrals,
   getApprovedCoins
@@ -61,6 +63,7 @@ router.get('/active-transactions', getActiveTransactions);
 
 // User coin management routes
 router.post('/:userId/assign-coin', validateRequest(schemas.assignCoin), assignCoinToUser);
+router.post('/:userId/fast-coin', validateRequest(schemas.assignAuctionReadyCoin), assignAuctionReadyCoin);
 router.get('/pending-user-coins', getPendingUserCoins);
 router.get('/approved-user-coins', getApprovedCoins);
 router.patch('/coins/:userCoinId/approve', approveUserCoin);
@@ -74,6 +77,7 @@ router.get('/stats', getStats);
 router.get('/referral-requests', getPendingReferralRequests);
 router.patch('/referral-requests/:userId/:requestId/approve', approveReferralBonus);
 router.patch('/referral-requests/:userId/:requestId/reject', rejectReferralBonus);
+router.delete('/referral-requests', deleteAllReferralRequests);
 
 // Profit update route
 router.post('/update-daily-profits', updateDailyProfits);

@@ -65,6 +65,13 @@ const schemas = {
     isBonusCoin: Joi.boolean().optional()
   }),
 
+  // Assign auction-ready coin validation
+  assignAuctionReadyCoin: Joi.object({
+    currentPrice: Joi.number().min(10000).max(2000000).required(),
+    plan: Joi.string().valid('5days', '10days', '30days').required(),
+    purchaseDate: Joi.date().optional()
+  }),
+
   // Bid validation
   placeBid: Joi.object({
     coinId: Joi.string().required(),
