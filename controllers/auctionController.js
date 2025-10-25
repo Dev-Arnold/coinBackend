@@ -363,7 +363,7 @@ const cancelReservation = async (req, res, next) => {
 
     res.status(200).json({
       status: 'success',
-      message: 'Reservation cancelled. Coin returned to auction. 5% credit score penalty applied.',
+      message: 'Reservation cancelled. Coin returned to auction. 2% credit score penalty applied.',
       data: {
         newCreditScore: user.creditScore
       }

@@ -29,6 +29,7 @@ import User from './models/User.js';
 import { releaseCoinsToAuction } from './services/auctionService.js';
 import startReservationCleanup from './utils/reservationCleanup.js';
 import { handleExpiredReservations } from './controllers/auctionController.js';
+import {startAuctionManually, endAuctionManually} from './controllers/adminController.js'
 
 // Create Express app
 const app = express();
@@ -75,6 +76,83 @@ app.use(cookieParser());
 // } catch (error) {
 //   console.log('Uploads directories already exist');
 // }
+
+app.post('/start', async (req, res, next) => {
+
+  try {
+    const { durationMinutes = 60 } = req.body;
+    
+    // Check if there's already an active auction
+    const activeAuction = await AuctionSession.findOne({ isActive: true });
+    console.log(activeAuction);
+    if (activeAuction) {
+      return next(new AppError('Auction is already running.', 400));
+    }
+
+    // Release coins to auction
+    const releaseResult = await releaseCoinsToAuction();
+    console.log(releaseResult);
+    
+    if (!releaseResult.success) {
+      return next(new AppError(releaseResult.message, 400));
+    }
+
+    // Create auction session with coins
+    const startTime = new Date();
+    const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
+    
+    const auction = await AuctionSession.create({
+      startTime,
+      endTime,
+      isActive: true,
+      coins: releaseResult.coinIds
+    });
+
+    const totalReleased = Object.values(releaseResult.results).reduce((sum, count) => sum + count, 0);
+
+    // Set timeout to automatically end auction
+    setTimeout(async () => {
+      try {
+        const auctionToEnd = await AuctionSession.findById(auction._id);
+        if (auctionToEnd && auctionToEnd.isActive) {
+          auctionToEnd.isActive = false;
+          auctionToEnd.endTime = new Date();
+          await auctionToEnd.save();
+          
+          await UserCoin.updateMany(
+            { isInAuction: true },
+            { isInAuction: false, auctionStartDate: null }
+          );
+          
+          console.log(`Manual auction ${auction._id} ended automatically after ${durationMinutes} minutes`);
+        }
+      } catch (error) {
+        console.error('Error auto-ending manual auction:', error);
+      }
+    }, durationMinutes * 60 * 1000);
+
+    res.status(201).json({
+      status: 'success',
+      message: `Auction started successfully with ${totalReleased} coins`,
+      data: {
+        auction: {
+          id: auction._id,
+          startTime: auction.startTime,
+          endTime: auction.endTime,
+          isActive: auction.isActive,
+          durationMinutes,
+          totalCoins: releaseResult.coinIds.length
+        },
+        releasedCoins: releaseResult.results,
+        totalCoinsInAuction: totalReleased
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/end', endAuctionManually);
 
 // Routes
 app.use('/api/auth', authRoutes);
