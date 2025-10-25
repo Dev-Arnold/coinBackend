@@ -133,6 +133,8 @@ const reserveCoin = async (req, res, next) => {
   try {
     const { coinId, plan, amount } = req.body;
     const userId = req.user.id;
+    console.log("Buyer reserved amount :",amount)
+
 
     // Check if auction is active
     const currentAuction = await AuctionSession.findOne({ isActive: true });
@@ -174,6 +176,7 @@ const reserveCoin = async (req, res, next) => {
     }
 
     const purchaseAmount = amount || profitInfo.currentValue;
+    console.log("Aount saved is :", purchaseAmount)
 
     // Check if user can reserve this coin based on last purchase amount
     const lastTransaction = await Transaction.findOne({
