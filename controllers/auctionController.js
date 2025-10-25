@@ -232,6 +232,7 @@ const reserveCoin = async (req, res, next) => {
     userCoin.reservedBy = userId;
     userCoin.reservedAt = new Date();
     userCoin.reservationExpires = expiresAt;
+    userCoin.reservedAmount = purchaseAmount;
     userCoin.previousPlan = userCoin.plan; // Store original plan
     userCoin.plan = plan; // Change to selected plan
     await userCoin.save();
@@ -311,6 +312,7 @@ const submitBidWithProof = async (req, res, next) => {
     userCoin.reservedBy = undefined;
     userCoin.reservedAt = undefined;
     userCoin.reservationExpires = undefined;
+    userCoin.reservedAmount = undefined;
     await userCoin.save();
 
     res.status(201).json({
@@ -346,6 +348,7 @@ const cancelReservation = async (req, res, next) => {
     userCoin.reservedBy = undefined;
     userCoin.reservedAt = undefined;
     userCoin.reservationExpires = undefined;
+    userCoin.reservedAmount = undefined;
     if (userCoin.previousPlan) {
       userCoin.plan = userCoin.previousPlan; // Restore original plan
       userCoin.previousPlan = undefined; // Clear previousPlan
@@ -380,52 +383,16 @@ const getMyReservations = async (req, res, next) => {
       reservationExpires: { $gt: new Date() }
     })
     .populate('owner', 'firstName lastName phone bankDetails')
-    .select('_id category currentPrice plan profitPercentage owner reservedAt reservationExpires purchaseDate createdAt previousPlan')
+    .select('_id category currentPrice plan profitPercentage owner reservedAt reservationExpires purchaseDate createdAt previousPlan reservedAmount')
     .sort('-reservedAt');
 
     const reservationsWithCalculatedValue = reservations.map(reservation => {
-      // Create a copy to avoid modifying the original
-      const reservationCopy = { ...reservation.toObject() };
-      
-      // Use original plan for calculation if it exists
-      if (reservation.previousPlan) {
-        // Keep the selected plan for display, only use previousPlan for calculation
-        // Manually calculate using original plan
-        const originalPlan = reservation.previousPlan;
-        let profitPercentage;
-        switch(originalPlan) {
-          case '3mins': profitPercentage = 35; break;
-          case '5days': profitPercentage = 35; break;
-          case '10days': profitPercentage = 107; break;
-          case '30days': profitPercentage = 161; break;
-          default: profitPercentage = reservation.profitPercentage;
-        }
-        
-        const startDate = reservation.purchaseDate || reservation.createdAt;
-        const now = Date.now();
-        let calculatedValue;
-        
-        if (originalPlan === '3mins') {
-          const timeHeld = Math.min(Math.floor((now - startDate.getTime()) / (1000 * 60)), 3);
-          const growth = profitPercentage / 3 / 100;
-          calculatedValue = Math.floor(reservation.currentPrice * (1 + (growth * timeHeld)));
-        } else {
-          const timeHeld = Math.min(Math.floor((now - startDate.getTime()) / (1000 * 60 * 60 * 24)), parseInt(originalPlan.replace('days', '')));
-          const dailyGrowth = profitPercentage / parseInt(originalPlan.replace('days', '')) / 100;
-          calculatedValue = Math.floor(reservation.currentPrice * (1 + (dailyGrowth * timeHeld)));
-        }
-        
-        return {
-          ...reservationCopy,
-          calculatedValue
-        };
-      } else {
-        const profitInfo = reservation.getProfitInfo();
-        return {
-          ...reservationCopy,
-          calculatedValue: profitInfo.currentValue
-        };
-      }
+      const profitInfo = reservation.getProfitInfo();
+      return {
+        ...reservation.toObject(),
+        calculatedValue: profitInfo.currentValue,
+        reservedAmount: reservation.reservedAmount || profitInfo.currentValue
+      };
     });
 
     res.status(200).json({
@@ -699,6 +666,7 @@ const handleExpiredReservations = async () => {
       userCoin.reservedBy = undefined;
       userCoin.reservedAt = undefined;
       userCoin.reservationExpires = undefined;
+      userCoin.reservedAmount = undefined;
       if (userCoin.previousPlan) {
         userCoin.plan = userCoin.previousPlan; // Restore original plan
         userCoin.previousPlan = undefined; // Clear previousPlan
