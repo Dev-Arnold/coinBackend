@@ -348,7 +348,9 @@ const releaseCoinToBuyer = async (req, res, next) => {
       if (buyer.referredBy) {
         const referrer = await User.findById(buyer.referredBy);
         if (referrer) {
-          referrer.referralEarnings = Number(referrer.referralEarnings || 0) + Math.floor(transaction.amount * 0.1);
+          const referralBonus = Number(process.env.REFERRAL_BONUS) || 2000;
+          const commissionBonus = Math.floor(transaction.amount * 0.1);
+          referrer.referralEarnings = Number(referrer.referralEarnings || 0) + referralBonus + commissionBonus;
           await referrer.save();
         }
       }
