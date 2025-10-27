@@ -350,7 +350,8 @@ const releaseCoinToBuyer = async (req, res, next) => {
         if (referrer) {
           const referralBonus = Number(process.env.REFERRAL_BONUS) || 2000;
           const commissionBonus = Math.floor(transaction.amount * 0.1);
-          referrer.referralEarnings = Number(referrer.referralEarnings || 0) + referralBonus + commissionBonus;
+          referrer.referralEarnings = Number(referrer.referralEarnings || 0) + 2000 + commissionBonus;
+          console.log("The referral earnings : ", referrer.referralEarnings)
           await referrer.save();
         }
       }
