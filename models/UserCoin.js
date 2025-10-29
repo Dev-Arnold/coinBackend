@@ -170,12 +170,30 @@ userCoinSchema.methods.hasMatured = function() {
   }
 };
 
+// Update category based on current value
+userCoinSchema.methods.updateCategoryByCurrentValue = function() {
+  const currentValue = this.calculateCurrentValue();
+  
+  if (currentValue >= 10000 && currentValue <= 100000) {
+    this.category = 'Category A';
+  } else if (currentValue > 100000 && currentValue <= 250000) {
+    this.category = 'Category B';
+  } else if (currentValue > 250000 && currentValue <= 500000) {
+    this.category = 'Category C';
+  } else if (currentValue > 500000 && currentValue <= 2000000) {
+    this.category = 'Category D';
+  }
+};
+
 // Get profit information
 userCoinSchema.methods.getProfitInfo = function() {
   const currentValue = this.calculateCurrentValue();
   const profit = currentValue - this.currentPrice;
   const profitPercentage = ((profit / this.currentPrice) * 100).toFixed(2);
   const isMatured = this.hasMatured();
+  
+  // Update category based on current value
+  this.updateCategoryByCurrentValue();
   
   return {
     currentValue,

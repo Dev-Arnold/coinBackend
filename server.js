@@ -110,27 +110,6 @@ app.post('/start', async (req, res, next) => {
 
     const totalReleased = Object.values(releaseResult.results).reduce((sum, count) => sum + count, 0);
 
-    // Set timeout to automatically end auction
-    setTimeout(async () => {
-      try {
-        const auctionToEnd = await AuctionSession.findById(auction._id);
-        if (auctionToEnd && auctionToEnd.isActive) {
-          auctionToEnd.isActive = false;
-          auctionToEnd.endTime = new Date();
-          await auctionToEnd.save();
-          
-          await UserCoin.updateMany(
-            { isInAuction: true },
-            { isInAuction: false, auctionStartDate: null }
-          );
-          
-          console.log(`Manual auction ${auction._id} ended automatically after ${durationMinutes} minutes`);
-        }
-      } catch (error) {
-        console.error('Error auto-ending manual auction:', error);
-      }
-    }, durationMinutes * 60 * 1000);
-
     res.status(201).json({
       status: 'success',
       message: `Auction started successfully with ${totalReleased} coins`,
@@ -269,7 +248,7 @@ cron.schedule('30 18 * * 0', async () => {
 });
 
 // End auctions
-cron.schedule('0 10 * * 1-6', endAuctionSession); // End morning auction at 10:00 AM
+cron.schedule('30 18 * * 1-6', endAuctionSession); // End morning auction at 6:00 PM
 cron.schedule('30 19 * * *', endAuctionSession); // End evening/Sunday auction at 7:30 PM
 
 // Handle expired reservations every 5 minutes

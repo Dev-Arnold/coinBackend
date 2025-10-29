@@ -23,7 +23,7 @@ A Node.js + Express + MongoDB backend for a coin auction platform with user auth
 - 30-minute auction duration
 - Three investment plans: 75 Days (53%), 10 Days (107%), 30 Days (215%)
 - 15-minute payment timeout
-- Coin categories (Bronze, Silver, Gold, Platinum)
+- Coin categories (Category A: ₦10K-100K, Category B: ₦100K-250K, Category C: ₦250K-500K, Category D: ₦500K-2M)
 - Recommitment system for coin resale
 
 ## Installation

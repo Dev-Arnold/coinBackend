@@ -499,6 +499,7 @@ const approveUserCoin = async (req, res, next) => {
     }
 
     userCoin.isApproved = true;
+    userCoin.isInAuction = true;
     userCoin.isLocked = false;
     userCoin.status = 'available';
     await userCoin.save();
