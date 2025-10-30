@@ -48,6 +48,7 @@ const getAuctionCoinsDebug = async (req, res, next) => {
       isInAuction: true,
       isApproved: true
     })
+    .sort({ createdAt: 1 })
     .populate('owner', 'firstName lastName')
     .select('_id currentPrice category plan profitPercentage owner status purchaseDate createdAt isBonusCoin');
 

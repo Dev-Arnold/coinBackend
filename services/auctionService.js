@@ -61,6 +61,7 @@ const releaseCoinsToAuction = async (auctionSessionId = null) => {
         isInAuction: false,
         isLocked: false
       })
+      .sort({ createdAt: 1 })
       .limit(50)
       .maxTimeMS(5000);
 

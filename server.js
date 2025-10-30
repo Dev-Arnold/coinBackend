@@ -80,7 +80,9 @@ app.use(cookieParser());
 app.post('/start', async (req, res, next) => {
 
   try {
-    const { durationMinutes = 60 } = req.body;
+    const now = new Date();
+    const day = now.getDay(); // Sunday = 0
+    const durationMinutes = (day === 0) ? 150 : 570;
     
     // Check if there's already an active auction
     const activeAuction = await AuctionSession.findOne({ isActive: true });
@@ -225,31 +227,31 @@ const endAuctionSession = async () => {
 
 // Schedule auctions
 // Monday-Saturday: 8:55 AM and 6:30 PM WAT
-cron.schedule('0 9 * * 1-6', async () => {
-  console.log('Starting morning auction (8:55 AM WAT)');
-  const startTime = new Date();
-  const endTime = new Date(startTime.getTime() + 65 * 60 * 1000); // 65 minutes (8:55 AM to 10:00 AM)
-  await createAuctionSession(startTime, endTime);
-});
+// cron.schedule('0 9 * * 1-6', async () => {
+//   console.log('Starting morning auction (8:55 AM WAT)');
+//   const startTime = new Date();
+//   const endTime = new Date(startTime.getTime() + 65 * 60 * 1000); // 65 minutes (8:55 AM to 10:00 AM)
+//   await createAuctionSession(startTime, endTime);
+// });
 
-cron.schedule('30 18 * * 1-6', async () => {
-  console.log('Starting evening auction (6:30 PM WAT)');
-  const startTime = new Date();
-  const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 60 minutes
-  await createAuctionSession(startTime, endTime);
-});
+// cron.schedule('30 18 * * 1-6', async () => {
+//   console.log('Starting evening auction (6:30 PM WAT)');
+//   const startTime = new Date();
+//   const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 60 minutes
+//   await createAuctionSession(startTime, endTime);
+// });
 
 // Sunday: 6:30 PM WAT only
-cron.schedule('30 18 * * 0', async () => {
-  console.log('Starting Sunday auction (6:30 PM WAT)');
-  const startTime = new Date();
-  const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 60 minutes
-  await createAuctionSession(startTime, endTime);
-});
+// cron.schedule('30 18 * * 0', async () => {
+//   console.log('Starting Sunday auction (6:30 PM WAT)');
+//   const startTime = new Date();
+//   const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 60 minutes
+//   await createAuctionSession(startTime, endTime);
+// });
 
 // End auctions
-cron.schedule('30 18 * * 1-6', endAuctionSession); // End morning auction at 6:00 PM
-cron.schedule('30 19 * * *', endAuctionSession); // End evening/Sunday auction at 7:30 PM
+// cron.schedule('30 18 * * 1-6', endAuctionSession); // End morning auction at 6:00 PM
+// cron.schedule('30 19 * * *', endAuctionSession); // End evening/Sunday auction at 7:30 PM
 
 // Handle expired reservations every 5 minutes
 cron.schedule('*/5 * * * *', async () => {
