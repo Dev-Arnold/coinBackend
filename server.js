@@ -20,6 +20,7 @@ import coinRoutes from './routes/coinRoutes.js';
 import kycRoutes from './routes/kycRoutes.js';
 import messageRoutes from "./routes/messageRoutes.js";
 import activityRoutes from './routes/activityRoutes.js';
+import backupRoutes from './routes/backupRoutes.js';
 
 // Import models for auction scheduling
 import AuctionSession from './models/AuctionSession.js';
@@ -143,6 +144,7 @@ app.use('/api/coins', coinRoutes);
 app.use('/api/kyc', kycRoutes);
 app.use("/api/messages", messageRoutes);
 app.use('/api/activity', activityRoutes);
+app.use('/api/backup', backupRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
