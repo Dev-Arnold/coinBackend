@@ -27,7 +27,6 @@ const releaseCoinsToAuction = async (auctionSessionId = null) => {
       // isLocked: false 
     }).maxTimeMS(5000);
     
-    console.log(`📊 User coins: ${totalUserCoins} (${approvedUserCoins} available for auction)`);
     
     if (totalUserCoins === 0) {
       return {
@@ -47,44 +46,46 @@ const releaseCoinsToAuction = async (auctionSessionId = null) => {
       };
     }
 
-    const categories = ['Category A', 'Category B', 'Category C', 'Category D'];
-    const results = {};
+    // Find ALL user coins available for auction
+    const userCoinsToRelease = await UserCoin.find({
+      isApproved: true,
+      isInAuction: false,
+      isLocked: false
+    })
+    .sort({ createdAt: 1 })
+    .maxTimeMS(5000);
+
+    console.log(`📋 Found ${userCoinsToRelease.length} total coins available for auction`);
+
     const allReleasedCoinIds = [];
+    const results = {};
     
+    // Group by category for reporting
+    const categories = ['Category A', 'Category B', 'Category C', 'Category D'];
     for (const category of categories) {
-      console.log(`🔍 Checking ${category}...`);
-      
-      // Find user coins for this category (must be unlocked, approved, and not in auction)
-      const userCoinsToRelease = await UserCoin.find({
-        category,
-        isApproved: true,
-        isInAuction: false,
-        isLocked: false
-      })
-      .sort({ createdAt: 1 })
-      .limit(50)
-      .maxTimeMS(5000);
-
-      console.log(`📋 Found ${userCoinsToRelease.length} user coins in ${category}`);
-
-      let categoryCount = 0;
-
-      // Release user coins
-      if (userCoinsToRelease.length > 0) {
-        const userCoinIds = userCoinsToRelease.map(uc => uc._id);
-        
-        await UserCoin.updateMany(
-          { _id: { $in: userCoinIds } },
-          { isInAuction: true }
-        ).maxTimeMS(5000);
-
-        allReleasedCoinIds.push(...userCoinIds);
-        categoryCount += userCoinsToRelease.length;
-      }
-
-      results[category] = categoryCount;
-      console.log(`✅ Released ${categoryCount} coins from ${category}`);
+      results[category] = 0;
     }
+
+    // Release ALL available coins
+    if (userCoinsToRelease.length > 0) {
+      const userCoinIds = userCoinsToRelease.map(uc => uc._id);
+      
+      await UserCoin.updateMany(
+        { _id: { $in: userCoinIds } },
+        { isInAuction: true }
+      ).maxTimeMS(5000);
+
+      allReleasedCoinIds.push(...userCoinIds);
+      
+      // Count by category for reporting
+      userCoinsToRelease.forEach(coin => {
+        if (coin.category && results.hasOwnProperty(coin.category)) {
+          results[coin.category]++;
+        }
+      });
+    }
+
+    console.log(`✅ Released ${userCoinsToRelease.length} total coins to auction`);
 
     const totalReleased = Object.values(results).reduce((sum, count) => sum + count, 0);
     

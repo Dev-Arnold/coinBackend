@@ -186,8 +186,8 @@ const reserveCoin = async (req, res, next) => {
     }).sort({ createdAt: -1 });
 
     if (lastTransaction) {
-      if (purchaseAmount < lastTransaction.amount) {
-        return next(new AppError(`You can only reserve coins with amount ₦${lastTransaction.amount.toLocaleString()} or higher. You're trying to buy ₦${purchaseAmount.toLocaleString()} worth of coin`, 400));
+      if (purchaseAmount <= lastTransaction.amount) {
+        return next(new AppError(`You can only reserve coins with amount higher than ₦${lastTransaction.amount.toLocaleString()}. You're trying to buy ₦${purchaseAmount.toLocaleString()} worth of coin`, 400));
       }
     }
 

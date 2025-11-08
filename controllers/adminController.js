@@ -160,7 +160,7 @@ const getPendingCoins = async (req, res, next) => {
 
 const getApprovedCoins = async (req, res, next) => {
   try {
-    const approvedCoins = await UserCoin.find({ isApproved: true })
+    const approvedCoins = await UserCoin.find({ isApproved: true, isLocked: false })
       .populate('owner', 'firstName lastName')
       .sort('-createdAt');
 
