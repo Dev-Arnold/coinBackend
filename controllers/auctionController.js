@@ -234,8 +234,7 @@ const reserveCoin = async (req, res, next) => {
     userCoin.reservedAt = new Date();
     userCoin.reservationExpires = expiresAt;
     userCoin.reservedAmount = purchaseAmount;
-    userCoin.previousPlan = userCoin.plan; // Store original plan
-    userCoin.plan = plan; // Change to selected plan
+    userCoin.reservedPlan = plan; // Store buyer's selected plan
     await userCoin.save();
     
     res.status(200).json({
@@ -295,7 +294,7 @@ const submitBidWithProof = async (req, res, next) => {
       userCoin: coinId,
       seller: userCoin.owner,
       amount: transactionAmount,
-      plan,
+      plan: userCoin.reservedPlan || plan, // Use reserved plan or fallback to provided plan
       paymentMethod,
       paymentProof: req.file.path,
       status: 'payment_uploaded',
@@ -314,6 +313,7 @@ const submitBidWithProof = async (req, res, next) => {
     userCoin.reservedAt = undefined;
     userCoin.reservationExpires = undefined;
     userCoin.reservedAmount = undefined;
+    userCoin.reservedPlan = undefined;
     await userCoin.save();
 
     res.status(201).json({
@@ -350,10 +350,7 @@ const cancelReservation = async (req, res, next) => {
     userCoin.reservedAt = undefined;
     userCoin.reservationExpires = undefined;
     userCoin.reservedAmount = undefined;
-    if (userCoin.previousPlan) {
-      userCoin.plan = userCoin.previousPlan; // Restore original plan
-      userCoin.previousPlan = undefined; // Clear previousPlan
-    }
+    userCoin.reservedPlan = undefined;
     await userCoin.save();
 
     // Reduce user's credit score by 2% for cancellation
@@ -384,7 +381,7 @@ const getMyReservations = async (req, res, next) => {
       reservationExpires: { $gt: new Date() }
     })
     .populate('owner', 'firstName lastName phone bankDetails')
-    .select('_id category currentPrice plan profitPercentage owner reservedAt reservationExpires purchaseDate createdAt previousPlan reservedAmount')
+    .select('_id category currentPrice reservedPlan profitPercentage owner reservedAt reservationExpires purchaseDate createdAt reservedAmount')
     .sort('-reservedAt');
 
     const reservationsWithCalculatedValue = reservations.map(reservation => {

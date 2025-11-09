@@ -62,6 +62,7 @@ const userCoinSchema = new mongoose.Schema({
   reservedAt: Date,
   reservationExpires: Date,
   reservedAmount: Number,
+  reservedPlan: String,
   previousPlan: String,
   isBonusCoin: {
     type: Boolean,
